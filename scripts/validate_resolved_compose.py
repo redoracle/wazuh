@@ -180,7 +180,7 @@ def validate(model: object) -> list[str]:
             continue
         unexpected = set(service) - APPROVED_SERVICE_FIELDS
         if unexpected:
-            errors.append(f'{name}: unreviewed service configuration fields')
+            errors.append(f"{name}: unreviewed service configuration fields ({', '.join(sorted(unexpected))})")
         if _environment_keys(service.get('environment')) != ENVIRONMENT_KEYS.get(
                 name, set()):
             errors.append(f'{name}: environment variable contract changed')
