@@ -14,9 +14,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  static-validation:
-    runs-on: ubuntu-latest
+  python-contracts:
+    name: Python contracts (${{ matrix.python-version }})
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.13', '3.14']
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -25,12 +30,24 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.13'
-      - name: Install offline test dependency
-        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
-      - name: Run offline Compose, documentation and security contracts
-        run: make test
-      - name: Validate resolved Compose config (no images pulled)
+          python-version: ${{ matrix.python-version }}
+      - name: Install pinned test-only dependency
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements-dev.txt
+          python -m pip check
+      - name: Verify Python syntax and offline contracts
+        run: make lint test PYTHON=python
+
+  compose-model:
+    name: Compose model and security contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate Compose syntax and resolved least-change policy
         env:
-          NGINX_CREDENTIALS: ci-placeholder
-        run: make compose-check
+          NGINX_CREDENTIALS: ci-only-placeholder
+        run: make compose-check resolved-check PYTHON=python3

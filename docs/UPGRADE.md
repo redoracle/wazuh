@@ -1,6 +1,6 @@
 # Dependency audit and controlled upgrade strategy
 
-## Baseline audit — November 5, 2026
+## Baseline audit — November 5, 2026 (reverified in second audit)
 
 | Component | Version in original repository | Decision |
 | --- | --- | --- |
@@ -17,7 +17,8 @@ Updating one of them in place, or updating Beats without validating its
 Elasticsearch API and index templates, could cause outages and data corruption.
 
 Vendor release guidance identifies stable Wazuh Docker `v4.14.9` and a newer
-manager/indexer/dashboard architecture. Wazuh 5.x is a separate major series;
+manager/indexer/dashboard architecture. The `v5.0.0-rc2` release is pre-release at audit time and must not be treated
+as a validated production destination. Wazuh 5.x is a separate major series;
 its appearance in release catalogs does not establish safe compatibility with
 this Wazuh 3 stack. These are **point-in-time** findings, not perpetual update
 advice. Check vendor guidance again before migration.
@@ -25,6 +26,7 @@ advice. Check vendor guidance again before migration.
 - https://github.com/wazuh/wazuh-docker/releases
 - https://documentation.wazuh.com/current/deployment-options/docker/upgrading-wazuh-docker.html
 - https://www.elastic.co/docs/deploy-manage/deploy/self-managed/installing-elasticsearch
+- https://documentation.wazuh.com/current/upgrade-guide/upgrading-central-components.html
 
 Operator preflight and recovery evidence should follow the
 [non-destructive operations runbook](OPERATIONS.md) and the
@@ -68,7 +70,20 @@ establish this. Capture baseline dashboard/search and alert events.
 
 ## Verification and rollback
 
-The added CI only runs YAML/contract tests and `docker compose config --quiet`:
+**Index-format warning:** Wazuh central-component guidance notes that
+versions 4.12.0 and newer use a different Lucene version, preventing rollback
+to 4.11 and earlier without a fresh indexer installation. Backups and
+version-aware data transfer are therefore mandatory. This note does **not**
+establish a direct supported path from this repository's Wazuh 3 images.
+
+**New CI coverage:** Python 3.11/3.13/3.14 checks and a strict, read-only
+resolved Compose model validator; they are safe upgrades of the development
+tooling, not of the running SIEM software. As of the second audit, PyYAML
+6.0.3 is the newest stable release, and the CI actions remain SHA-pinned.
+
+
+The added CI runs YAML/contract tests, Docker Compose config validation and
+resolved-model privilege/topology checks:
 **it does not start images, perform CVE scans, prove certificates, or run live
 integration tests**. Production changes need a staging deployment and an
 independent security/recovery review.
@@ -89,3 +104,6 @@ Elasticsearch code against volumes already mutated by a newer indexer.
   intentionally reviewed architectural change, not an implicit refactor.
 - Dependabot can propose future *test and CI tooling* upgrades, but does not
   substitute for manual Wazuh/Beats compatibility and runtime checks.
+
+See the [second audit](SECOND_AUDIT.md) for dated upgrade decisions and
+[repository administration](REPOSITORY_ADMIN.md) for required branch checks.

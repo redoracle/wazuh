@@ -30,9 +30,10 @@ python -m pip install -r requirements-dev.txt
 make check
 ```
 
-`make test` runs offline YAML, service-security, and documentation checks;
-`make compose-check` validates the resolved Compose configuration without
-pulling or starting images. Do not substitute these checks for a staging
+`make lint` compiles test/validator Python. `make test` runs offline YAML,
+service-security, adversarial mutation and documentation checks.
+`make compose-check` verifies Compose syntax; `make resolved-check` validates
+the interpolated security contract without pulling or starting images. Do not substitute these checks for a staging
 security review or workload-level integration tests.
 
 ## Review checklist
@@ -51,6 +52,12 @@ security review or workload-level integration tests.
   and workflow changes retain least-privilege permissions.
 
 ## Repository conventions
+
+- See the [second audit](docs/SECOND_AUDIT.md) for prioritized findings,
+  dependency decisions and unresolved risks.
+- Run the [required CI checks](docs/REPOSITORY_ADMIN.md) on Python
+  3.11/3.13/3.14 and Docker Compose before merge; repository rulesets are
+  configured in GitHub Settings, not enforced by this Markdown file.
 
 - Use two-space YAML indentation and four-space Python indentation.
 - Pin CI actions to immutable commit SHAs and annotate their reviewed versions.

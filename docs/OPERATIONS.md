@@ -14,6 +14,7 @@ credential values into issue reports or CI logs**:
 # Structural validation only: no containers started, images pulled or networks created.
 python -m pip install -r requirements-dev.txt
 make check
+# Runs offline tests plus both Compose model checks; no images pulled.
 
 # Inspect the *existing* Docker network's IPAM, membership and routing.
 docker network inspect sll_net
@@ -93,3 +94,12 @@ with currently maintained manager, indexer and dashboard components, private
 networking, verified data volumes, authenticated TLS and a tested restore path.
 Treat all Elastic Beats integrations as separately reviewed migrations.
 See [docs/UPGRADE.md](UPGRADE.md) for migration phases and acceptance criteria.
+
+## Maintenance quality policy
+
+Before proposing changes to images, mounts, networks or capabilities, run
+`make check` and review [the second audit](SECOND_AUDIT.md). CI rejects
+unreviewed changes to the **resolved** Compose model. Do not print `docker
+compose config` output from a production host into logs or public issues: it
+may contain interpolated credential values. The automated validator consumes
+JSON via a pipe and prints generic results only.

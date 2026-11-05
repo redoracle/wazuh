@@ -1,3 +1,6 @@
+# Safe automatic review of CI and test-only dependencies.
+# Intentionally omit Docker images: the legacy stack requires a separately
+# tested, version-aware Wazuh/Elasticsearch migration.
 version: 2
 updates:
   - package-ecosystem: github-actions

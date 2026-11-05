@@ -1,5 +1,18 @@
 # Security policy and legacy deployment boundaries
 
+## Supported versions
+
+| Component | Status | Security update policy |
+| --- | --- | --- |
+| Wazuh 3.10.2 / legacy Elastic 7 stack | **Unsupported** | No security patches are supplied by this repository; migrate to vendor-supported releases |
+| Elastic Beats 7.4.2 | **Unsupported legacy integration** | No independently safe version bump is established |
+| Test and CI tooling | Maintained as repository tooling only | Pinned versions, Dependabot reviews and GitHub Actions checks |
+
+Do not use this repository as a way to receive vendor security patches.
+**High-risk findings remain open** until a tested replacement exists; see the
+[second audit](docs/SECOND_AUDIT.md) and
+[threat model](docs/THREAT_MODEL.md).
+
 **Warning:** This is a historical 2019 infrastructure configuration using
 legacy Wazuh 3, Elasticsearch/Kibana 7.3-era images and Beats 7.4.2. It is not
 an actively supported, security-certified product. Do not expose it to the
@@ -42,6 +55,11 @@ high-risk original privileges or make the stack production-safe**.
 
 ## Responsible reporting
 
+Use GitHub's private vulnerability reporting capability **if enabled**, or
+a verified non-public maintainer channel. We do not promise a response-time
+SLA, embargo date, or security backport for unsupported vendor components.
+Avoid publishing exploit steps or live credentials in public issues.
+
 Do not publish credentials, host identifiers, working exploits, or private
 infrastructure details in public issues. Contact repository maintainers via
 an appropriate private channel or GitHub private vulnerability reporting
@@ -50,3 +68,6 @@ an appropriate private channel or GitHub private vulnerability reporting
 For remediation priorities, see [Upgrade and migration](docs/UPGRADE.md).
 For non-destructive verification and recovery preparation, see the
 [operator runbook](docs/OPERATIONS.md).
+
+For branch protection and automated security policies, see the
+[repository administrator checklist](docs/REPOSITORY_ADMIN.md).

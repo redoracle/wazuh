@@ -32,9 +32,13 @@ class RepositoryQualityTests(unittest.TestCase):
                          {'on': {'push': {}}})
 
     def test_all_configuration_files_have_valid_yaml(self):
-        for path in (ROOT / 'docker-compose.yml',
-                     ROOT / '.github/workflows/validate.yml',
-                     ROOT / '.github/dependabot.yml'):
+        configuration_files = [
+            ROOT / 'docker-compose.yml',
+            ROOT / '.github/workflows/validate.yml',
+            ROOT / '.github/dependabot.yml',
+            *(ROOT / '.github/ISSUE_TEMPLATE').glob('*.yml'),
+        ]
+        for path in configuration_files:
             with self.subTest(path=path.name):
                 self.assertTrue(load_yaml(path))
 
@@ -46,11 +50,19 @@ class RepositoryQualityTests(unittest.TestCase):
         self.assertIn('workflow_dispatch', ci['on'])
         self.assertEqual(ci['on']['push']['branches'], ['master'])
         jobs = ci['jobs']
-        self.assertEqual(set(jobs), {'static-validation'})
-        steps = jobs['static-validation']['steps']
+        self.assertEqual(set(jobs), {'python-contracts', 'compose-model'})
+        self.assertEqual(
+            set(jobs['python-contracts']['strategy']['matrix']['python-version']),
+            {'3.11', '3.13', '3.14'},
+        )
+        self.assertTrue(all(job['runs-on'] == 'ubuntu-24.04'
+                            for job in jobs.values()))
+        self.assertTrue(all(job['timeout-minutes'] <= 10
+                            for job in jobs.values()))
+        steps = [step for job in jobs.values() for step in job['steps']]
         commands = '\n'.join(step.get('run', '') for step in steps)
-        self.assertIn('make test', commands)
-        self.assertIn('make compose-check', commands)
+        self.assertIn('make lint test', commands)
+        self.assertIn('make compose-check resolved-check', commands)
         self.assertNotRegex(commands, r'docker\s+compose\s+(?:up|down|pull)\b')
         for step in steps:
             if 'uses' in step:
@@ -70,7 +82,7 @@ class RepositoryQualityTests(unittest.TestCase):
 
     def test_docs_local_links_and_headings_resolve(self):
         docs = list(ROOT.rglob('*.md'))
-        self.assertGreaterEqual(len(docs), 7)
+        self.assertGreaterEqual(len(docs), 13)
         for doc in docs:
             if any(part == '.git' for part in doc.relative_to(ROOT).parts):
                 continue
@@ -104,7 +116,7 @@ class RepositoryQualityTests(unittest.TestCase):
                                              for part in path.relative_to(ROOT).parts):
                 continue
             if path.suffix not in extensions and path.name not in {
-                'Makefile', '.gitignore', '.editorconfig'}:
+                'Makefile', '.gitignore', '.editorconfig', '.gitattributes'}:
                 continue
             with self.subTest(file=str(path.relative_to(ROOT))):
                 text = path.read_text(encoding='utf-8')
@@ -127,15 +139,57 @@ class RepositoryQualityTests(unittest.TestCase):
         self.assertIn('.env', ignore)
         self.assertIn('.env.*', ignore)
         self.assertIn('!.env.example', ignore)
+        self.assertIn('*.key', ignore)
+        self.assertIn('*.p12', ignore)
+        self.assertIn('*.pem', ignore)
         example = (ROOT / '.env.example').read_text(encoding='utf-8')
         self.assertRegex(example, r'(?m)^NGINX_CREDENTIALS=$')
         self.assertNotRegex(example, r'(?i)(?:password|token|secret)\s*[:=]\s*\S+')
 
+    def test_issue_forms_conform_to_github_schema(self):
+        folder = ROOT / '.github/ISSUE_TEMPLATE'
+        configuration = load_yaml(folder / 'config.yml')
+        self.assertFalse(configuration['blank_issues_enabled'])
+        self.assertTrue(configuration.get('contact_links'))
+        forms = list(folder.glob('*.yml'))
+        self.assertGreaterEqual(len(forms), 3)
+        for path in forms:
+            if path.name == 'config.yml':
+                continue
+            form = load_yaml(path)
+            with self.subTest(template=path.name):
+                self.assertTrue(set(form) <= {
+                    'name', 'description', 'title', 'labels', 'assignees',
+                    'body', 'type',
+                })
+                self.assertTrue(form.get('name'))
+                self.assertTrue(form.get('description'))
+                self.assertTrue(form.get('body'))
+                self.assertTrue(all(item.get('type') in {
+                    'markdown', 'input', 'textarea', 'dropdown', 'checkboxes',
+                } for item in form['body']))
+
+    def test_supply_chain_and_governance_files_exist(self):
+        for path in (
+            '.gitattributes', 'CODE_OF_CONDUCT.md', 'SUPPORT.md',
+            'CHANGELOG.md', 'docs/SECOND_AUDIT.md',
+            'docs/THREAT_MODEL.md', 'docs/REPOSITORY_ADMIN.md',
+        ):
+            with self.subTest(path=path):
+                self.assertTrue((ROOT / path).is_file())
+        security = (ROOT / 'SECURITY.md').read_text(encoding='utf-8')
+        self.assertIn('private', security.lower())
+        self.assertIn('unsupported', security.lower())
+        upgrades = (ROOT / 'docs/UPGRADE.md').read_text(encoding='utf-8')
+        self.assertIn('rollback', upgrades.lower())
+
     def test_makefile_runs_only_non_destructive_checks(self):
         makefile = (ROOT / 'Makefile').read_text(encoding='utf-8')
-        self.assertIn('.PHONY: test compose-check check', makefile)
+        self.assertIn('.PHONY: lint test compose-check resolved-check check', makefile)
         self.assertIn('unittest discover -s tests -v', makefile)
         self.assertIn('config --quiet', makefile)
+        self.assertIn('config --format json', makefile)
+        self.assertIn('scripts.validate_resolved_compose', makefile)
         self.assertNotRegex(makefile, r'(?m)^\s*.*docker\s+compose\s+(?:up|down|pull)\b')
 
 

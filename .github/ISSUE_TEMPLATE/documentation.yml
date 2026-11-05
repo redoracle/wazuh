@@ -1,0 +1,36 @@
+name: Documentation correction
+description: Report documentation, links or repository maintenance issues (not vendor/runtime incidents).
+title: "docs: "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This repository is a historical reference. **Do not post credentials,
+        tokens, host/agent identifiers, real logs, or vulnerability details.**
+        Read [SECURITY.md](https://github.com/redoracle/wazuh/blob/master/SECURITY.md)
+        for reporting guidance.
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Broken link or outdated guidance
+        - README or other documentation correction
+        - CI/test or developer tooling
+        - Compatibility/security documentation (non-sensitive)
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: What is incorrect or missing?
+      description: Provide a public repository path and sanitized details only.
+    validations:
+      required: true
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Suggested correction
+    validations:
+      required: false

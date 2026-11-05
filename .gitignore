@@ -9,3 +9,13 @@ __pycache__/
 .DS_Store
 .idea/
 .vscode/
+
+# Common credential and incident-response artifacts (not an exhaustive secret scanner).
+*.key
+*.p12
+*.pfx
+*.pem
+*.keystore
+*.log
+*.bak
+*.dump

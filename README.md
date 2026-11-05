@@ -1,5 +1,7 @@
 # Wazuh legacy Docker Compose deployment
 
+[CI workflows](https://github.com/redoracle/wazuh/actions/workflows/validate.yml) · [Second audit](docs/SECOND_AUDIT.md) · [Security policy](SECURITY.md) · [Official Wazuh Docker](https://github.com/wazuh/wazuh-docker)
+
 > [!CAUTION]
 > **Historical reference — not a supported or production-ready deployment.**
 > This repository contains a 2019 Wazuh 3 / Elasticsearch–Kibana 7 / Elastic
@@ -31,6 +33,7 @@ reference architecture.
 - [Configuration reference](#configuration-reference)
 - [What is and is not verified](#what-is-and-is-not-verified)
 - [Documentation and contributions](#documentation-and-contributions)
+- [Security and release decisions](#security-and-release-decisions)
 
 ## Architecture and risks
 
@@ -70,9 +73,11 @@ create containers, or modify the external Docker network.
 
 ```sh
 python -m pip install -r requirements-dev.txt
-make test              # Python/YAML/service-security/documentation contracts
-make compose-check     # docker compose config --quiet; no containers run
-# or, to run both:
+make lint             # Compile test/validator Python without execution
+make test             # Python/YAML/service-security/documentation contracts
+make compose-check    # Docker Compose syntax only; no containers run
+make resolved-check   # Validate the interpolated security contract; no containers
+# or, to run all four:
 make check
 ```
 
@@ -81,10 +86,13 @@ Without `make`, run the equivalent commands directly:
 ```sh
 python -m unittest discover -s tests -v
 docker compose -f docker-compose.yml config --quiet
+# The resolved security check is supplied by make resolved-check.
 ```
 
-GitHub Actions runs both validation stages for every pull request and push to
-`master` using read-only repository permissions and immutable action SHAs.
+GitHub Actions runs offline tests on Python **3.11, 3.13 and 3.14**, plus
+two independent Compose checks, for every pull request and push to `master`.
+It uses read-only repository permissions, immutable action SHAs, and a
+fixed Ubuntu runner baseline. No images or containers are pulled or started.
 The test dependency is used by the repository tooling **only**, not installed
 inside the Wazuh containers.
 
@@ -133,6 +141,7 @@ The old `expose:` entries do **not** publish host ports; other members of
 | Original service, images, IPs, privilege and mount contracts | Automated unit tests |
 | Documentation links and repository hygiene | Automated unit tests |
 | Docker Compose model and variable interpolation | GitHub Actions + `make compose-check` |
+| Resolved service, image, mount, port and privilege invariants | GitHub Actions + `make resolved-check` |
 | Old image availability, CVEs, TLS, secrets, data durability | **Not verified** |
 | Detection, ingest, dashboards, recovery, production security | **Not verified**; requires isolated staging |
 
@@ -143,15 +152,39 @@ changed without a vendor-supported migration path and acceptance tests.
 
 | Document | Purpose |
 | --- | --- |
+| [Second engineering audit](docs/SECOND_AUDIT.md) | Prioritized findings, safe upgrades, outstanding critical risks and evidence |
+| [Threat model](docs/THREAT_MODEL.md) | Assets, trust boundaries and attack scenarios |
+| [Repository settings](docs/REPOSITORY_ADMIN.md) | Required GitHub branch rules, check names and admin checklist |
 | [Architecture](docs/ARCHITECTURE.md) | Topology, fixed addressing, host privileges and constraints |
 | [Operations](docs/OPERATIONS.md) | Non-destructive preflight, diagnostics, backup and rollback checklist |
 | [Upgrade strategy](docs/UPGRADE.md) | Version decisions, migration stages and acceptance gates |
 | [Security policy](SECURITY.md) | Known risks and responsible vulnerability reporting |
 | [Architecture decision](docs/decisions/0001-legacy-compatibility.md) | Why this PR preserves the legacy contract |
 | [Contributing](CONTRIBUTING.md) | Required checks, review rules and change classification |
+| [Support](SUPPORT.md) | Scope, limitations and safe issue reporting |
+| [Code of conduct](CODE_OF_CONDUCT.md) | Collaboration and moderation guidelines |
+| [Changelog](CHANGELOG.md) | Repository maintenance history; not upstream image releases |
 
 Contributions are welcome, but proposed runtime changes must distinguish
 **compatibility-preserving maintenance** from a **breaking platform migration**.
 See the [contribution guidelines](CONTRIBUTING.md). The repository's root
 [MIT license](LICENSE) covers its repository material; upstream images and
 components retain their respective licenses.
+
+## Security and release decisions
+
+The [second audit](docs/SECOND_AUDIT.md) records **critical open findings**
+that a test suite cannot fix: unsupported vendor images, globally routable
+network addresses, host-level collectors and unproven restore capability.
+The [threat model](docs/THREAT_MODEL.md) describes these trust boundaries.
+
+**Version policy:** PyYAML 6.0.3 is the latest stable test-only dependency
+verified at the audit date, and GitHub Actions are pinned to reviewed release
+SHAs. Python CI coverage now includes 3.14. **No legacy Docker image is
+upgraded:** Wazuh 3/Elastic 7 to current Wazuh manager/indexer/dashboard is a
+separate, vendor-supported migration with data and rollback testing.
+
+The [GitHub settings checklist](docs/REPOSITORY_ADMIN.md) documents branch
+protection, required checks, secret scanning and code review controls that
+need an administrator to enable; committing a policy file alone cannot
+enforce those account-level settings.

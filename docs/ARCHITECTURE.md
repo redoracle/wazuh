@@ -66,3 +66,14 @@ For inspection and recovery without destructive changes, use the
 in [ADR 0001](decisions/0001-legacy-compatibility.md).
 
 Reference: https://github.com/wazuh/wazuh-docker
+
+### Automated architecture drift detection
+
+The historical baseline is encoded in `tests/test_compose.py` and in the
+[resolved Compose validator](../scripts/validate_resolved_compose.py). Both
+check fixed service/network IDs and sensitive privileges; the resolved
+validator also detects unsafe overrides from environment interpolation or
+Docker Compose normalization. Mutation tests in
+`tests/test_resolved_compose.py` prove that common privilege expansions fail.
+These are **change-control checks**, not verification that this architecture
+is safe to run. See [second audit](SECOND_AUDIT.md).
