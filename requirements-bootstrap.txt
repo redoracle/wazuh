@@ -1,0 +1,2 @@
+# Required for local one-time password hashing (not installed in Wazuh containers).
+bcrypt==5.0.0

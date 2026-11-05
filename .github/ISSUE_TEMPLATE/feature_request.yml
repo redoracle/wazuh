@@ -1,0 +1,16 @@
+name: Feature request
+about: Propose a maintainability or deployment improvement
+labels: [enhancement]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe the problem and proposed change.
+    validations:
+      required: true
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility and security implications
+      description: Explain the potential impact on certificates, credentials, volumes, endpoints and vendor release alignment.

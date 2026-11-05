@@ -1,73 +1,26 @@
-# Security policy and legacy deployment boundaries
+# Security policy
 
-## Supported versions
+## Supported deployment
 
-| Component | Status | Security update policy |
-| --- | --- | --- |
-| Wazuh 3.10.2 / legacy Elastic 7 stack | **Unsupported** | No security patches are supplied by this repository; migrate to vendor-supported releases |
-| Elastic Beats 7.4.2 | **Unsupported legacy integration** | No independently safe version bump is established |
-| Test and CI tooling | Maintained as repository tooling only | Pinned versions, Dependabot reviews and GitHub Actions checks |
+This repository publishes a version-aligned Wazuh single-node Compose configuration. The image tags are pinned to the supported upstream **4.14.9** stable release as of November 2026. The project is not a managed security service and makes no claim that configuration-only CI equals production certification.
 
-Do not use this repository as a way to receive vendor security patches.
-**High-risk findings remain open** until a tested replacement exists; see the
-[second audit](docs/SECOND_AUDIT.md) and
-[threat model](docs/THREAT_MODEL.md).
+## Default safeguards
 
-**Warning:** This is a historical 2019 infrastructure configuration using
-legacy Wazuh 3, Elasticsearch/Kibana 7.3-era images and Beats 7.4.2. It is not
-an actively supported, security-certified product. Do not expose it to the
-internet or run on untrusted, multi-tenant hosts. Prefer the supported upstream
-[Wazuh Docker deployment](https://github.com/wazuh/wazuh-docker).
+- Generates unique passwords for indexer admin, dashboard service and manager API integration; no known sample passwords are committed.
+- Enables certificate-backed TLS among components, based on Wazuh's official certificate generator and matching config files.
+- Binds host-facing dashboard, agent and manager API endpoints to loopback by default, and does not publish the indexer API.
+- Avoids Docker daemon socket mounts, host PID namespace, unnecessary capabilities and hard-coded public-range IPv4 addresses.
+- Keeps runtime secrets, generated configs and TLS private keys out of Git using `.gitignore`; validates these boundaries in CI.
+- Applies read-only bind mounts for trusted configuration and certificates where practical, and keeps long-lived application state in named volumes.
 
-## Observed risks
+## Security responsibilities
 
-- `172.13.0.0/16` is *not* a private network range. The external `sll_net`
-  network may conflict with public routing and other Docker peers.
-- Filebeat and Metricbeat mount `/var/run/docker.sock`. Even when mounted
-  `:ro`, the Docker API endpoint may perform state-changing operations.
-  Treat socket access as effectively host-root privilege.
-- Auditbeat joins the host PID namespace and requests audit capabilities.
-  Packetbeat/Metricbeat request additional network/inspection capabilities;
-  Filebeat and Metricbeat run as root.
-- Multiple host filesystem mounts allow access to sensitive data. `/Datak`
-  mounts are not confirmed service persistence directories; backups based only
-  on these paths may be incomplete.
-- `NGINX_CREDENTIALS` is passed through the environment. The image's exact
-  credential format, minimum permissions, and secret exposure need validation.
-  Environmental secrets can be visible to privileged container inspectors.
-- The repository does not demonstrate tested backups, TLS/certificate
-  management, readiness probes, robust secret rotation, audit retention or
-  runtime vulnerability scanning.
+Docker host administrators can access environment variables and container state; current v4.14.9 Wazuh images use environment variables for service credentials. The private `.env` is therefore **not equivalent to a hardware-backed secret store**. Keep host access limited, protect backups, use trusted certificates for remote users, and restrict who can connect to enrollment and APIs. For remote agent traffic, use explicit firewall/VPN rules and review enrollment authentication.
 
-## Guardrails
+The initial password generator only provisions an **empty** security database. A live indexer's credentials cannot be rotated safely by rerunning the generator. Password changes must follow supported Wazuh/OpenSearch procedures and update all dependent services. Avoid uploading `.env`, private PEM files, index snapshots or incident artifacts to public tickets.
 
-Keep any existing stack isolated behind strict firewall controls, minimize
-membership of `sll_net`, and prevent the Docker socket from being shared with
-untrusted collectors. Keep `.env` outside version control; if it contains
-secrets, restrict file permissions and do not print it in CI or support logs.
-Back up and verify the *actual* application data paths. Treat collectors with
-host privileges as requiring host-level trust. Use vendor-maintained container
-images and documented migrations for new installations.
+No HA, snapshot schedule, automated recovery, external SIEM policy or network firewall is configured for you. Review [Operations](docs/OPERATIONS.md) and [Upgrading](docs/UPGRADING.md) before a production change.
 
-The current maintenance patch only makes suitable collector configuration and
-journal inputs read-only and adds static tests; **it does not remove the
-high-risk original privileges or make the stack production-safe**.
+## Reporting a vulnerability
 
-## Responsible reporting
-
-Use GitHub's private vulnerability reporting capability **if enabled**, or
-a verified non-public maintainer channel. We do not promise a response-time
-SLA, embargo date, or security backport for unsupported vendor components.
-Avoid publishing exploit steps or live credentials in public issues.
-
-Do not publish credentials, host identifiers, working exploits, or private
-infrastructure details in public issues. Contact repository maintainers via
-an appropriate private channel or GitHub private vulnerability reporting
-(if configured), and report vendor binary vulnerabilities to the vendor.
-
-For remediation priorities, see [Upgrade and migration](docs/UPGRADE.md).
-For non-destructive verification and recovery preparation, see the
-[operator runbook](docs/OPERATIONS.md).
-
-For branch protection and automated security policies, see the
-[repository administrator checklist](docs/REPOSITORY_ADMIN.md).
+Do **not** post credentials, exploit details, or private security logs in public issues. Use GitHub private vulnerability reporting when enabled, or contact the repository maintainer through a trusted private channel. For vulnerabilities in Wazuh binaries or images, use the vendor's published security reporting process. Include affected component versions and a sanitized reproduction.
