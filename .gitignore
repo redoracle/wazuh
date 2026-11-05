@@ -1,21 +1,15 @@
-# Never commit local credentials.
+# Runtime credentials and rendered configurations (never commit).
 .env
 .env.*
 !.env.example
+config/generated/
+config/wazuh_indexer_ssl_certs/
+# Local development artifacts.
 __pycache__/
 *.py[cod]
 .venv/
 .pytest_cache/
+.ruff_cache/
 .DS_Store
 .idea/
 .vscode/
-
-# Common credential and incident-response artifacts (not an exhaustive secret scanner).
-*.key
-*.p12
-*.pfx
-*.pem
-*.keystore
-*.log
-*.bak
-*.dump

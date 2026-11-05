@@ -1,2 +1,2 @@
-# Offline tests only; no Python dependencies are installed in Wazuh containers.
+-r requirements-bootstrap.txt
 PyYAML==6.0.3

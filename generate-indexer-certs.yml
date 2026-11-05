@@ -1,0 +1,9 @@
+# Certificate generation is a one-off operation. Release-matched upstream tool.
+services:
+  generator:
+    image: wazuh/wazuh-certs-generator:0.0.4
+    environment:
+      CERT_TOOL_VERSION: '4.14'
+    volumes:
+      - ./config/wazuh_indexer_ssl_certs:/certificates
+      - ./config/certs.yml:/config/certs.yml:ro

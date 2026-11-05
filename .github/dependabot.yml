@@ -1,14 +1,11 @@
-# Safe automatic review of CI and test-only dependencies.
-# Intentionally omit Docker images: the legacy stack requires a separately
-# tested, version-aware Wazuh/Elasticsearch migration.
 version: 2
 updates:
-  - package-ecosystem: github-actions
+  - package-ecosystem: pip
     directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-  - package-ecosystem: pip
+  - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly

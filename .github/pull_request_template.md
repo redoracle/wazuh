@@ -1,30 +1,20 @@
-## Purpose and scope
+## Summary
 
-<!-- Explain the motivation, what changed, and why this change is appropriate for a historical stack. -->
+Describe what changes, why it is needed, and the Wazuh release or vendor reference when relevant.
 
-## Change classification
+## Safety and compatibility
 
-- [ ] Documentation/tooling or compatibility-preserving maintenance
-- [ ] Runtime-affecting change (requires documented compatibility evidence)
-- [ ] Platform migration (requires isolated staging and approved rollback plan)
+- [ ] Wazuh manager/indexer/dashboard versions remain a coordinated release set.
+- [ ] Ports, TLS, credentials, volume persistence and image provenance were reviewed.
+- [ ] No `.env`, generated file, private key or real customer data is included.
+- [ ] Breaking changes include migration, backup and rollback instructions.
 
-## Verification performed
+## Verification
 
-- [ ] `make test`
-- [ ] `make compose-check` (no containers started)
-- [ ] Manual config/security review of changed host/network privileges
-- [ ] Staging ingest, alert, backup and restore tests **if runtime is changed**
-
-## Security and rollback impact
-
-<!-- Document changed image tags, published ports, host permissions, secret inputs,
-volume targets, operational risk, vendor compatibility, and how to recover. -->
+- [ ] Python unit tests passed.
+- [ ] Docker Compose configuration validated with initialized local test credentials.
+- [ ] Staging image/runtime validation performed when service behavior changes (or explicitly documented as not performed).
 
 ## Documentation
 
-- [ ] README and operator documentation updated where behavior changed
-- [ ] Architecture decision updated/added for significant changes
-- [ ] No secrets, private host details or sensitive logs are included
-
-> CI validates configuration syntax and regression contracts only. It does not
-> certify that historical images are secure or that a running deployment works.
+Link changed README, architecture, operations or upgrade guidance as applicable.

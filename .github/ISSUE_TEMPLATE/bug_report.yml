@@ -1,0 +1,26 @@
+name: Bug report
+about: Report deployment, documentation, or validation defects
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "For security vulnerabilities, use SECURITY.md and avoid public disclosures."
+  - type: input
+    id: version
+    attributes:
+      label: Wazuh tag
+      placeholder: "4.14.9"
+    validations:
+      required: true
+  - type: textarea
+    id: issue
+    attributes:
+      label: What happened?
+      description: Include sanitized reproduction steps, expected and actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: platform
+    attributes:
+      label: Host and Docker information
+      description: OS, architecture, Docker and Compose versions; remove secrets and private host details.

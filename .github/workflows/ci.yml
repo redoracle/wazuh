@@ -1,0 +1,59 @@
+name: Validate Wazuh deployment
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wazuh-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-contracts:
+    name: Python and bootstrap contracts (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.13', '3.14']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install pinned offline dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
+      - name: Check Python syntax and repository contracts
+        run: |
+          python -m compileall -q scripts tests
+          python -m unittest discover -s tests -v
+
+  compose-config:
+    name: Docker Compose configuration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+      - name: Install bootstrap dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements-bootstrap.txt
+      - name: Create isolated CI credentials (never printed)
+        run: |
+          python scripts/bootstrap.py
+          python scripts/bootstrap.py --check
+      - name: Validate generator and Wazuh models (no image pull)
+        run: |
+          docker compose -f generate-indexer-certs.yml config --quiet
+          docker compose -f docker-compose.yml config --quiet

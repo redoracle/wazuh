@@ -1,22 +1,34 @@
-# Non-destructive quality gates. Never pull or start legacy images here.
-SHELL := /bin/bash
-.SHELLFLAGS := -euo pipefail -c
+.PHONY: help bootstrap bootstrap-check certs config check test up status logs down
 PYTHON ?= python3
-COMPOSE ?= docker compose
 
-.PHONY: lint test compose-check resolved-check check
+help:
+	@printf '%s\n' 'make bootstrap  - create unique credentials (one time)' 'make certs      - generate TLS certificates (requires Docker)' 'make config     - verify interpolated Compose model' 'make test       - execute offline regression tests' 'make check      - run tests and Compose validation' 'make up         - start the stack' 'make status     - show service status' 'make logs       - follow service logs' 'make down       - stop services (keeps volumes)'
 
-lint:
-	$(PYTHON) -m compileall -q scripts tests
+bootstrap:
+	$(PYTHON) scripts/bootstrap.py
+
+bootstrap-check:
+	$(PYTHON) scripts/bootstrap.py --check
+
+certs:
+	docker compose -f generate-indexer-certs.yml run --rm generator
+
+config:
+	docker compose -f docker-compose.yml config --quiet
+
+check: test config
 
 test:
 	$(PYTHON) -m unittest discover -s tests -v
 
-compose-check:
-	$(COMPOSE) -f docker-compose.yml config --quiet
+up:
+	docker compose up -d
 
-# No secrets are printed. This command validates the interpolated JSON model.
-resolved-check:
-	$(COMPOSE) --env-file .env.example -f docker-compose.yml config --format json | $(PYTHON) -m scripts.validate_resolved_compose
+status:
+	docker compose ps
 
-check: lint test compose-check resolved-check
+logs:
+	docker compose logs -f --tail=100
+
+down:
+	docker compose down

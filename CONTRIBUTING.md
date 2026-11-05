@@ -1,72 +1,25 @@
-# Contributing to the Wazuh legacy configuration
+# Contributing
 
-This repository is a historical infrastructure reference. It is **not** a
-supported production distribution, and passing CI does not certify old vendor
-images. Changes should improve auditability and safe migration without hiding
-or expanding legacy operational risk.
+Contributions are welcome for release alignment, documentation, security hardening and cross-platform compatibility.
 
-## Before opening a pull request
+## Development workflow
 
-1. Read [SECURITY.md](SECURITY.md) and the
-   [architecture decision](docs/decisions/0001-legacy-compatibility.md).
-2. Classify the change:
-   - **Maintenance:** tests, documentation, tooling, non-breaking YAML cleanup.
-   - **Runtime-affecting:** image tags, IPs, host mounts, privileges, data
-     paths, service dependencies, credentials, listener behavior, or resources.
-   - **Migration:** a separately planned target stack with version-supported
-     data transfer, rollback, security acceptance and a staging test report.
-3. Do not combine a routine maintenance PR with a major Wazuh/Elastic migration.
-4. Do not commit passwords, tokens, certificates/private keys, `.env` files,
-   real IPs of private infrastructure, logs containing credentials, or data.
-5. Update the README/runbook and explicit regression contracts when a
-   legitimate change alters expected topology or deployment behavior.
+1. Open a focused issue or proposal for any architecture, exposure, credential or data-path change.
+2. Create a feature branch from the repository default branch.
+3. Use a Python 3.11+ virtual environment; `python -m pip install -r requirements-dev.txt`.
+4. Run `python -m unittest discover -s tests -v` and `python -m compileall -q scripts tests`.
+5. For Compose changes, run `docker compose -f generate-indexer-certs.yml config --quiet` and `docker compose config --quiet` **after** a fresh local bootstrap; do not print secrets.
+6. Submit a PR with the official Wazuh version or document reference, compatibility explanation, security and data impact, test evidence and rollback instructions.
 
-## Local quality gate
+Never commit `.env`, TLS private keys, `config/generated/`, real agent identifiers, customer logs or other secret material. Changes to the three Wazuh images, indexer schema and certificate generator **must be reviewed together** as a matched release update. Do not request a runtime test of internet-exposed endpoints from public CI.
 
-Requires Python 3.11+ and (for Compose validation) Docker Compose v2.
+A configuration-only test is not proof that services start correctly. Image and upgrade changes need a staging deployment with test ingestion, TLS verification, snapshots and restore. CI must pass before merge.
 
-```sh
-python -m pip install -r requirements-dev.txt
-make check
-```
+## Code and documentation conventions
 
-`make lint` compiles test/validator Python. `make test` runs offline YAML,
-service-security, adversarial mutation and documentation checks.
-`make compose-check` verifies Compose syntax; `make resolved-check` validates
-the interpolated security contract without pulling or starting images. Do not substitute these checks for a staging
-security review or workload-level integration tests.
+- Use consistent YAML mappings, minimal container privileges, and pinned action/dependency versions.
+- Keep deployment instructions reproducible and safe to run on a blank host.
+- Validate links, explain host versus container ports, and document data-loss risks.
+- Preserve Wazuh upstream copyright/attribution and the repository GPL-2.0 licensing obligations.
 
-## Review checklist
-
-- The PR explains *why* the change is safe, the compatibility impact, and
-  the exact tests run.
-- Changed Wazuh/Beats image versions include a vendor-supported compatibility
-  matrix, staged ingest/alert tests, image digest records, and a rollback plan.
-- Increased host capabilities, socket access, mounts, or public ports require
-  explicit security review. Removal of existing collector privileges also
-  requires a functional collector test; failing closed is not automatically
-  functionally equivalent.
-- Changed data paths require proof of persistence, backup, **restore**, and
-  migration, not just a successful container startup.
-- All local Markdown links resolve, no sample secrets are real, and all test
-  and workflow changes retain least-privilege permissions.
-
-## Repository conventions
-
-- See the [second audit](docs/SECOND_AUDIT.md) for prioritized findings,
-  dependency decisions and unresolved risks.
-- Run the [required CI checks](docs/REPOSITORY_ADMIN.md) on Python
-  3.11/3.13/3.14 and Docker Compose before merge; repository rulesets are
-  configured in GitHub Settings, not enforced by this Markdown file.
-
-- Use two-space YAML indentation and four-space Python indentation.
-- Pin CI actions to immutable commit SHAs and annotate their reviewed versions.
-- Keep `.env.example` synthetic and leave `.env` ignored by Git.
-- Prefer concise, reproducible commands over instructions that automatically
-  deploy, mutate or destroy old production data.
-- Document architectural trade-offs in `docs/decisions/` before changing the
-  legacy compatibility boundary.
-
-Issues or public PRs must never include exploit details, credentials, private
-agent identifiers, or production configuration dumps. See the private
-reporting guidance in [SECURITY.md](SECURITY.md).
+See [the security policy](SECURITY.md) for private vulnerability reports.
