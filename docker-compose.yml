@@ -1,9 +1,9 @@
 # Wazuh App Copyright (C) 2019 Wazuh Inc. (License GPLv2)
-version: '2'
+# LEGACY: for migration guidance see README.md and docs/UPGRADE.md.
 
 services:
   wazuh:
-    image: wazuh/wazuh:3.10.2_7.3.2
+    image: wazuh/wazuh:${WAZUH_STACK_TAG:-3.10.2_7.3.2}
     hostname: wazuh-manager
     restart: always
     expose:
@@ -16,7 +16,7 @@ services:
         ipv4_address: 172.13.0.104
 
   elasticsearch:
-    image: wazuh/wazuh-elasticsearch:3.10.2_7.3.2
+    image: wazuh/wazuh-elasticsearch:${WAZUH_STACK_TAG:-3.10.2_7.3.2}
     hostname: elasticsearch
     restart: always
     expose:
@@ -38,7 +38,7 @@ services:
     mem_limit: 2g
 
   kibana:
-    image: wazuh/wazuh-kibana:3.10.2_7.3.2
+    image: wazuh/wazuh-kibana:${WAZUH_STACK_TAG:-3.10.2_7.3.2}
     hostname: kibana
     restart: always
     volumes:
@@ -48,12 +48,9 @@ services:
        ipv4_address: 172.13.0.102
     depends_on:
       - elasticsearch
-    links:
-      - elasticsearch:elasticsearch
-      - wazuh:wazuh
-      
+
   nginx:
-    image: wazuh/wazuh-nginx:3.10.2_7.3.2
+    image: wazuh/wazuh-nginx:${WAZUH_STACK_TAG:-3.10.2_7.3.2}
     hostname: nginx
     restart: always
     volumes:
@@ -69,11 +66,9 @@ services:
        ipv4_address: 172.13.0.101
     depends_on:
       - kibana
-    links:
-      - kibana:kibana
 
   packetbeat:
-    image: docker.elastic.co/beats/packetbeat:7.4.2
+    image: docker.elastic.co/beats/packetbeat:${BEATS_TAG:-7.4.2}
     hostname: packetbeat
     restart: always
     networks:
@@ -85,12 +80,9 @@ services:
     depends_on:
       - elasticsearch
       - kibana
-    links:
-      - elasticsearch:elasticsearch
-      - kibana:kibana
 
   filebeat:
-    image: docker.elastic.co/beats/filebeat:7.4.2
+    image: docker.elastic.co/beats/filebeat:${BEATS_TAG:-7.4.2}
     hostname: filebeat
     user: root
     restart: always
@@ -100,17 +92,14 @@ services:
     volumes:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /DATA/Wazuh/Filebeat/filebeat.yml:/etc/filebeat/filebeat.yml
+      - /DATA/Wazuh/Filebeat/filebeat.yml:/etc/filebeat/filebeat.yml:ro
       - /DATA/Wazuh/Filebeat/:/Datak
     depends_on:
       - elasticsearch
       - kibana
-    links:
-      - elasticsearch:elasticsearch
-      - kibana:kibana
 
   auditbeat:
-    image: docker.elastic.co/beats/auditbeat:7.4.2
+    image: docker.elastic.co/beats/auditbeat:${BEATS_TAG:-7.4.2}
     hostname: auditbeat
     restart: always
     networks:
@@ -121,17 +110,14 @@ services:
       - AUDIT_READ
     pid: host
     volumes:
-      - /DATA/Wazuh/Auditbeat/auditbeat.yml:/etc/auditbeat/auditbeat.yml
+      - /DATA/Wazuh/Auditbeat/auditbeat.yml:/etc/auditbeat/auditbeat.yml:ro
       - /DATA/Wazuh/Auditbeat/:/Datak
     depends_on:
       - elasticsearch
       - kibana
-    links:
-      - elasticsearch:elasticsearch
-      - kibana:kibana
 
   journalbeat:
-    image: docker.elastic.co/beats/journalbeat:7.4.2
+    image: docker.elastic.co/beats/journalbeat:${BEATS_TAG:-7.4.2}
     hostname: journalbeat
     restart: always
     networks:
@@ -139,19 +125,16 @@ services:
        ipv4_address: 172.13.0.108
     volumes:
       - /DATA/Wazuh/Journalbeat:/Datak
-      - /run/log/journal:/var/log/journal
-      - /etc/machine-id:/etc/machine-id
-      - /run/systemd:/run/systemd
+      - /run/log/journal:/var/log/journal:ro
+      - /etc/machine-id:/etc/machine-id:ro
+      - /run/systemd:/run/systemd:ro
       - /etc/hostname:/etc/hostname:ro
     depends_on:
       - elasticsearch
       - kibana
-    links:
-      - elasticsearch:elasticsearch
-      - kibana:kibana
-      
+
   heartbeat:
-    image: docker.elastic.co/beats/heartbeat:7.4.2
+    image: docker.elastic.co/beats/heartbeat:${BEATS_TAG:-7.4.2}
     hostname: heartbeat
     restart: always
     networks:
@@ -162,12 +145,9 @@ services:
     depends_on:
       - elasticsearch
       - kibana
-    links:
-      - elasticsearch:elasticsearch
-      - kibana:kibana
-      
+
   metricbeat:
-    image: docker.elastic.co/beats/metricbeat:7.4.2
+    image: docker.elastic.co/beats/metricbeat:${BEATS_TAG:-7.4.2}
     hostname: metricbeat
     restart: always
     user: root
@@ -178,7 +158,7 @@ services:
       - dac_read_search
       - sys_ptrace
     volumes:
-      - /DATA/Wazuh/Metricbeat/metricbeat.yml:/etc/metricbeat/metricbeat.yml
+      - /DATA/Wazuh/Metricbeat/metricbeat.yml:/etc/metricbeat/metricbeat.yml:ro
       - /DATA/Wazuh/Metricbeat/:/Datak
       - /:/hostfs:ro
       - /proc:/hostfs/proc:ro
@@ -187,11 +167,7 @@ services:
     depends_on:
       - elasticsearch
       - kibana
-    links:
-      - elasticsearch:elasticsearch
-      - kibana:kibana
 
 networks:
   sll_net:
     external: true
-       

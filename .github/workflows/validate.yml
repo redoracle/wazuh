@@ -1,0 +1,36 @@
+name: Validate legacy Compose
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compose-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+      - name: Install offline test dependency
+        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
+      - name: Run Compose contract tests
+        run: python -m unittest discover -s tests -v
+      - name: Validate resolved Compose config (no images pulled)
+        env:
+          NGINX_CREDENTIALS: ci-placeholder
+        run: docker compose -f docker-compose.yml config --quiet
