@@ -1,81 +1,157 @@
-# Wazuh — legacy Docker Compose stack
+# Wazuh legacy Docker Compose deployment
 
-> **Status: historical, not production-ready or security-supported.** This repository
-> preserves a 2019 Wazuh 3.10.2 and Elasticsearch/Kibana 7.3.2 deployment with
-> Elastic Beats 7.4.2. Do **not** deploy it on untrusted networks. For a new
-> deployment, use the [official Wazuh Docker stack](https://github.com/wazuh/wazuh-docker)
-> and follow its current prerequisites, certificate, and credential instructions.
+> [!CAUTION]
+> **Historical reference — not a supported or production-ready deployment.**
+> This repository contains a 2019 Wazuh 3 / Elasticsearch–Kibana 7 / Elastic
+> Beats 7.4 Docker Compose configuration. Its images are obsolete, it requests
+> substantial host privileges, and its data mounts have not been proven to
+> persist application state. **Do not expose or deploy it on untrusted hosts.**
+> For a new installation, start with the
+> [official Wazuh Docker project](https://github.com/wazuh/wazuh-docker).
 
-## Overview
+A compatibility-preserving maintenance project for an existing ten-container
+stack. The purpose of this repository is to make the historical configuration
+**auditable, testable, and migratable**—not to present it as a modern Wazuh
+reference architecture.
 
-The configuration defines ten services: Wazuh manager, Elasticsearch, Kibana,
-Nginx, Packetbeat, Filebeat, Auditbeat, Journalbeat, Heartbeat, and Metricbeat.
-All share a pre-existing external network `sll_net` and have statically assigned
-`172.13.0.101`–`172.13.0.110` addresses. Several services mount host paths under
-`/DATA/Wazuh` and request sensitive host access.
+| At a glance | Details |
+| --- | --- |
+| **Components** | Wazuh manager, Elasticsearch, Kibana, Nginx, and six Elastic Beats collectors |
+| **Version baseline** | Wazuh images `3.10.2_7.3.2`; Beats `7.4.2` |
+| **Configuration** | [`docker-compose.yml`](docker-compose.yml) with two image-tag families |
+| **Network** | Pre-existing `sll_net` and fixed `172.13.0.101–110` container IPs (not private address space) |
+| **Verification** | Python contract/docs tests and Docker Compose model validation; **no integration tests** |
+| **Production status** | **Unsupported; migration required** |
 
-**This range is not private.** `172.13.0.0/16` is globally routable IPv4 space,
-not RFC1918 private space. It must be replaced during migration. The repository
-uses `expose:`, not `ports:`, so Docker Compose does not directly publish any
-container ports on the host, although peers on `sll_net` may have access.
+## Contents
 
-## Validation — no containers started
+- [Architecture and risks](#architecture-and-risks)
+- [Validate without running containers](#validate-without-running-containers)
+- [Existing operators: lab-only preflight](#existing-operators-lab-only-preflight)
+- [Configuration reference](#configuration-reference)
+- [What is and is not verified](#what-is-and-is-not-verified)
+- [Documentation and contributions](#documentation-and-contributions)
 
-Run from the repository root:
+## Architecture and risks
+
+```mermaid
+flowchart LR
+    A[Wazuh agents] --> W[Wazuh 3 manager]
+    W --> E[Elasticsearch 7.3]
+    B[Six Beats collectors] --> E
+    E --> K[Kibana 7.3]
+    K --> N[Nginx]
+```
+
+This is a *conceptual* dependency sketch; real event routing and security
+settings depend on legacy images and host-mounted configuration not stored
+here. See the [service inventory and design constraints](docs/ARCHITECTURE.md).
+
+Four critical issues must not be obscured by successful static checks:
+
+1. **Obsolete images.** A Wazuh 3 → current manager/indexer/dashboard transition
+   is a platform migration, not an image-tag bump.
+2. **Public-range addressing.** `172.13.0.0/16` is **not** RFC1918 space. The
+   external Docker network may clash with host routing and neighboring services.
+3. **Host-level access.** Collectors use root, Linux capabilities, host PID
+   access, and Docker socket mounts. A `:ro` Docker socket bind does *not*
+   prevent operations through the socket.
+4. **Unproven durability.** Several historical bind mounts target `/Datak`;
+   these are not verified application data directories. A running container
+   does not prove that data survives recreation or disaster recovery.
+
+Read the [security boundaries](SECURITY.md) before any operational action.
+
+## Validate without running containers
+
+**Prerequisites:** Python 3.11+ and `pip`; for the complete check also install
+Docker with the **Compose v2 CLI plugin**. These commands do not pull images,
+create containers, or modify the external Docker network.
 
 ```sh
 python -m pip install -r requirements-dev.txt
+make test              # Python/YAML/service-security/documentation contracts
+make compose-check     # docker compose config --quiet; no containers run
+# or, to run both:
+make check
+```
+
+Without `make`, run the equivalent commands directly:
+
+```sh
 python -m unittest discover -s tests -v
 docker compose -f docker-compose.yml config --quiet
 ```
 
-The last command requires the Docker Compose v2 CLI plugin. Configuration
-validation does not pull images, confirm image availability, test secrets, or
-establish runtime security. CI performs the same checks for proposed changes.
+GitHub Actions runs both validation stages for every pull request and push to
+`master` using read-only repository permissions and immutable action SHAs.
+The test dependency is used by the repository tooling **only**, not installed
+inside the Wazuh containers.
 
-## For operators of an existing isolated installation
+## Existing operators: lab-only preflight
 
-1. Read [Security](SECURITY.md), [Architecture](docs/ARCHITECTURE.md), and
-   [Migration and dependency audit](docs/UPGRADE.md) **before** running anything.
-2. Inspect `docker network inspect sll_net` and confirm its address allocations
-   won't conflict with another network or route. Do not create the historical
-   public-range network on a production host.
-3. Review the `/DATA/Wazuh` mounts, required Beat configuration files, and
-   actual container storage paths. Historical `/Datak` targets are unchanged;
-   **they are not verified persistent data directories** and must not be
-   assumed to protect Elasticsearch or other application data.
-4. Copy `.env.example` to `.env` only in a private working environment; set
-   `NGINX_CREDENTIALS` using an approved secret source. Apply `chmod 600 .env`
-   if writing credentials to that file. `.env` is Git-ignored but credentials
-   may still be exposed to privileged inspectors or in shell history.
-5. Inspect resolved settings with `docker compose config --quiet`, then in a
-   *segregated lab only*, start with `docker compose up -d`. Validate actual
-   authentication, ingestion, alerting, persistence, and restoration before
-   considering any further use of these old images.
+> [!WARNING]
+> These steps are for assessing an **already existing, isolated deployment**,
+> not for creating a new internet-facing stack. Review the detailed
+> [operator runbook](docs/OPERATIONS.md) and [migration plan](docs/UPGRADE.md)
+> before making changes.
 
-## Versioning and compatibility
+1. Inventory host/container versions, actual image digests, privileged mounts,
+   persistent data paths, and a working restore procedure.
+2. Check `docker network inspect sll_net` against local routing. **Do not
+   recreate the historical public-address subnet on a production host.**
+3. Verify all necessary `/DATA/Wazuh` paths and collector configuration files
+   are present. Do not infer that a `/Datak` volume persists application data.
+4. In a **private, access-controlled lab**, copy `.env.example` to `.env` and
+   restrict its permissions (`chmod 600 .env`). Supply actual credentials only
+   through your approved secret-management process. Keep them out of Git,
+   tickets and CI output.
+5. Validate the resolved model with `make check`, then follow the runbook's
+   explicit go/no-go checklist. Do **not** treat a successful Compose check as
+   approval to run these obsolete images.
 
-The environment variables `WAZUH_STACK_TAG` and `BEATS_TAG` control image tags
-across all four Wazuh images and all six Beats images respectively. Their
-interpolation defaults preserve the exact pre-audit image versions without an
-`.env` file. They do **not** make arbitrary newer tags compatible or safe.
+## Configuration reference
 
-The legacy stack must be rebuilt along the vendor-supported manager/indexer/
-dashboard architecture, not upgraded by changing a tag alone. The migration
-plan includes a backup inventory, staging acceptance criteria, and rollback
-steps. [Read the upgrade decision and plan](docs/UPGRADE.md).
+| Setting | Default / location | Notes |
+| --- | --- | --- |
+| `WAZUH_STACK_TAG` | `3.10.2_7.3.2` | One coordinated tag for all four legacy Wazuh images; **not** a general upgrade switch |
+| `BEATS_TAG` | `7.4.2` | One tag for all six Beats images; changing it needs integration checks |
+| `NGINX_CREDENTIALS` | Unset | Historical image environment input; handle as secret and confirm expected format |
+| `sll_net` | Existing external network | Fixed IPs require matching IPAM and non-conflicting routing |
+| `/DATA/Wazuh/*` | Host bind mounts | Historical paths retained; actual data persistence **unverified** |
 
-## Scope of the maintenance patch
+The Compose file uses `${VARIABLE:-default}` substitutions, so its original
+image tags remain unchanged when `.env` is absent. `.env` is ignored by Git.
+The old `expose:` entries do **not** publish host ports; other members of
+`sll_net` may nevertheless reach those container endpoints.
 
-- Removed deprecated Compose format version and legacy `links` (the shared
-  user-defined network already provides DNS resolution by service name).
-- Added read-only flags to Beat configuration and journal input mounts without
-  changing host paths, fixed IPs, container images, or collector privileges.
-- Centralized coordinated image tag defaults and documented a secret-safe
-  local `.env` workflow.
-- Added strict YAML and architecture regression tests, current CI tooling,
-  scheduled dependency review, `.editorconfig`, security documentation, and
-  a controlled platform migration guide.
+## What is and is not verified
 
-This patch deliberately makes **no untested runtime image upgrades**. Static
-checks do not replace functional staging tests or a security assessment.
+| Check | Coverage |
+| --- | --- |
+| YAML mapping correctness and duplicate keys | Automated unit tests |
+| Original service, images, IPs, privilege and mount contracts | Automated unit tests |
+| Documentation links and repository hygiene | Automated unit tests |
+| Docker Compose model and variable interpolation | GitHub Actions + `make compose-check` |
+| Old image availability, CVEs, TLS, secrets, data durability | **Not verified** |
+| Detection, ingest, dashboards, recovery, production security | **Not verified**; requires isolated staging |
+
+The [upgrade decision](docs/UPGRADE.md) records why no image version was
+changed without a vendor-supported migration path and acceptance tests.
+
+## Documentation and contributions
+
+| Document | Purpose |
+| --- | --- |
+| [Architecture](docs/ARCHITECTURE.md) | Topology, fixed addressing, host privileges and constraints |
+| [Operations](docs/OPERATIONS.md) | Non-destructive preflight, diagnostics, backup and rollback checklist |
+| [Upgrade strategy](docs/UPGRADE.md) | Version decisions, migration stages and acceptance gates |
+| [Security policy](SECURITY.md) | Known risks and responsible vulnerability reporting |
+| [Architecture decision](docs/decisions/0001-legacy-compatibility.md) | Why this PR preserves the legacy contract |
+| [Contributing](CONTRIBUTING.md) | Required checks, review rules and change classification |
+
+Contributions are welcome, but proposed runtime changes must distinguish
+**compatibility-preserving maintenance** from a **breaking platform migration**.
+See the [contribution guidelines](CONTRIBUTING.md). The repository's root
+[MIT license](LICENSE) covers its repository material; upstream images and
+components retain their respective licenses.

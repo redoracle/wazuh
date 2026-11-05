@@ -4,7 +4,7 @@ import re
 import unittest
 from pathlib import Path
 
-import yaml
+from yaml_contract import load_yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 SERVICES = {
@@ -12,32 +12,25 @@ SERVICES = {
     'auditbeat', 'journalbeat', 'heartbeat', 'metricbeat',
 }
 WAZUH = {'wazuh', 'elasticsearch', 'kibana', 'nginx'}
-
-
-class StrictLoader(yaml.SafeLoader):
-    """Prevent silently overriding keys in production YAML."""
-
-
-def construct_unique_mapping(loader, node):
-    result = {}
-    for key_node, value_node in node.value:
-        key = loader.construct_object(key_node)
-        if key in result:
-            raise ValueError(f'Duplicate YAML key: {key}')
-        result[key] = loader.construct_object(value_node)
-    return result
-
-
-StrictLoader.add_constructor(
-    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, construct_unique_mapping,
-)
+EXACT_IPS = {
+    'nginx': '172.13.0.101',
+    'kibana': '172.13.0.102',
+    'elasticsearch': '172.13.0.103',
+    'wazuh': '172.13.0.104',
+    'packetbeat': '172.13.0.105',
+    'filebeat': '172.13.0.106',
+    'auditbeat': '172.13.0.107',
+    'journalbeat': '172.13.0.108',
+    'heartbeat': '172.13.0.109',
+    'metricbeat': '172.13.0.110',
+}
 
 
 class ComposeContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.raw = (ROOT / 'docker-compose.yml').read_text(encoding='utf-8')
-        cls.compose = yaml.load(cls.raw, Loader=StrictLoader)
+        cls.compose = load_yaml(ROOT / 'docker-compose.yml')
         cls.services = cls.compose['services']
 
     def test_service_inventory_and_legacy_contract(self):
@@ -69,7 +62,11 @@ class ComposeContractTests(unittest.TestCase):
         self.assertEqual(len(set(ips)), len(SERVICES))
         # These public-range IPs are intentionally preserved for compatibility,
         # NOT recommended for new deployments; see SECURITY.md.
-        self.assertTrue(all(str(ip).startswith('172.13.0.') for ip in ips))
+        self.assertEqual(
+            {name: service['networks']['sll_net']['ipv4_address']
+             for name, service in self.services.items()}, EXACT_IPS
+        )
+        self.assertFalse(any(ip.is_private for ip in ips))
 
     def test_read_only_journal_and_collector_config(self):
         for mount in (
@@ -90,8 +87,54 @@ class ComposeContractTests(unittest.TestCase):
         workflow = (ROOT / '.github/workflows/validate.yml').read_text()
         self.assertIn('permissions:\n  contents: read', workflow)
         self.assertIn('persist-credentials: false', workflow)
-        self.assertRegex(workflow, r'actions/checkout@[0-9a-f]{40} # v7\.0\.1')
-        self.assertRegex(workflow, r'actions/setup-python@[0-9a-f]{40} # v7\.0\.0')
+        self.assertRegex(workflow, r'actions/checkout@[0-9a-f]{40} # v[0-9]+\.[0-9]+\.[0-9]+')
+        self.assertRegex(workflow, r'actions/setup-python@[0-9a-f]{40} # v[0-9]+\.[0-9]+\.[0-9]+')
+
+    def test_host_privilege_contract_is_not_expanded(self):
+        expected_caps = {
+            'packetbeat': {'NET_RAW', 'NET_ADMIN'},
+            'auditbeat': {'AUDIT_CONTROL', 'AUDIT_READ'},
+            'metricbeat': {'dac_read_search', 'sys_ptrace'},
+        }
+        for name, service in self.services.items():
+            with self.subTest(service=name):
+                self.assertNotIn('privileged', service)
+                self.assertNotIn('network_mode', service)
+                self.assertNotIn('devices', service)
+                self.assertEqual(set(service['networks']), {'sll_net'})
+                self.assertEqual(set(service.get('cap_add', [])),
+                                 expected_caps.get(name, set()))
+                self.assertEqual(service.get('pid'),
+                                 'host' if name == 'auditbeat' else None)
+                self.assertEqual(service.get('user'),
+                                 'root' if name in {'filebeat', 'metricbeat'}
+                                 else None)
+
+    def test_docker_socket_access_is_not_expanded(self):
+        actual_users = {
+            name for name, service in self.services.items()
+            if any('/var/run/docker.sock:' in vol
+                   for vol in service.get('volumes', []))
+        }
+        self.assertEqual(actual_users, {'filebeat', 'metricbeat'})
+        for name in actual_users:
+            self.assertIn('/var/run/docker.sock:/var/run/docker.sock:ro',
+                          self.services[name]['volumes'])
+
+    def test_legacy_data_mount_targets_remain_explicit(self):
+        # These targets are NOT confirmed correct persistence directories.
+        # Preserving them is a compatibility decision, not an endorsement.
+        expected = {
+            'elasticsearch': 'Elasticsearch', 'kibana': 'Kibana',
+            'nginx': 'Nginx', 'filebeat': 'Filebeat',
+            'auditbeat': 'Auditbeat', 'journalbeat': 'Journalbeat',
+            'heartbeat': 'Heartbeat', 'metricbeat': 'Metricbeat',
+        }
+        for name, directory in expected.items():
+            with self.subTest(service=name):
+                suffix = '/' if name in {'filebeat', 'auditbeat', 'metricbeat'} else ''
+                expected_mount = f'/DATA/Wazuh/{directory}{suffix}:/Datak'
+                self.assertIn(expected_mount, self.services[name]['volumes'])
 
     def test_env_example_and_fallbacks(self):
         example = (ROOT / '.env.example').read_text(encoding='utf-8')

@@ -26,6 +26,10 @@ advice. Check vendor guidance again before migration.
 - https://documentation.wazuh.com/current/deployment-options/docker/upgrading-wazuh-docker.html
 - https://www.elastic.co/docs/deploy-manage/deploy/self-managed/installing-elasticsearch
 
+Operator preflight and recovery evidence should follow the
+[non-destructive operations runbook](OPERATIONS.md) and the
+[legacy compatibility ADR](decisions/0001-legacy-compatibility.md).
+
 ## Pre-migration inventory
 
 Document the *running* image digests (not just tags), Wazuh agent versions,

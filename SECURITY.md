@@ -48,3 +48,5 @@ an appropriate private channel or GitHub private vulnerability reporting
 (if configured), and report vendor binary vulnerabilities to the vendor.
 
 For remediation priorities, see [Upgrade and migration](docs/UPGRADE.md).
+For non-destructive verification and recovery preparation, see the
+[operator runbook](docs/OPERATIONS.md).

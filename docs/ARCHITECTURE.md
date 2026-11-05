@@ -61,4 +61,8 @@ backups, segregate collectors with minimum rights, remove Docker socket mounts
 when not strictly necessary, and add checks that exercise actual ingest,
 alerting, health, retention, dashboard login, and recovery.
 
+For inspection and recovery without destructive changes, use the
+[operator runbook](OPERATIONS.md). Major compatibility decisions are documented
+in [ADR 0001](decisions/0001-legacy-compatibility.md).
+
 Reference: https://github.com/wazuh/wazuh-docker
