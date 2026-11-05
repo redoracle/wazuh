@@ -41,8 +41,14 @@ class ResolvedComposeTests(unittest.TestCase):
         self.model['services']['nginx']['entrypoint'] = ['/bin/sh', '-c', 'echo bad']
         self.model['services']['nginx']['environment'].append('DOCKER_HOST=tcp://host')
         errors = validate(self.model)
-        self.assertTrue(any('unreviewed service configuration' in e for e in errors))
+        self.assertTrue(any('unreviewed entrypoint override' in e for e in errors))
         self.assertTrue(any('environment variable contract' in e for e in errors))
+
+    def test_allows_compose_normalized_empty_command_and_entrypoint(self):
+        for service in self.model['services'].values():
+            service['command'] = None
+            service['entrypoint'] = None
+        self.assertFalse(validate(self.model))
 
     def test_rejects_new_dependency_or_exposed_port(self):
         self.model['services']['nginx']['depends_on'].append('wazuh')
