@@ -1,0 +1,2 @@
+# Offline tests only; no Python dependencies are installed in Wazuh containers.
+PyYAML==6.0.3

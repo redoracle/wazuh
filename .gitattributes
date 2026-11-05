@@ -1,0 +1,9 @@
+# Deterministic, reviewable source files across Linux, macOS and Windows.
+* text=auto
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.py text eol=lf
+*.txt text eol=lf
+*.example text eol=lf
+Makefile text eol=lf

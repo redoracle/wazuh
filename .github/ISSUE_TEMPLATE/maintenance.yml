@@ -1,0 +1,35 @@
+name: Maintenance request
+description: Request a reproducible non-production change to the repository.
+title: "chore: "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The legacy Docker images are unsupported. Image upgrades and live
+        infrastructure changes require a separate staged migration plan.
+        **Never post secrets, security exploits, production logs or private IPs.**
+  - type: textarea
+    id: need
+    attributes:
+      label: Expected improvement
+      description: Explain the maintenance goal and non-sensitive context.
+    validations:
+      required: true
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Scope
+      options:
+        - Documentation / offline tests
+        - CI / repository governance
+        - Runtime-affecting change (requires migration/security review)
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Suggested verification and rollback
+      description: Explain how this can be reviewed without untrusted deployments.
+    validations:
+      required: false

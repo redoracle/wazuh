@@ -1,0 +1,21 @@
+# Never commit local credentials.
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.DS_Store
+.idea/
+.vscode/
+
+# Common credential and incident-response artifacts (not an exhaustive secret scanner).
+*.key
+*.p12
+*.pfx
+*.pem
+*.keystore
+*.log
+*.bak
+*.dump
