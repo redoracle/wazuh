@@ -178,9 +178,15 @@ def validate(model: object) -> list[str]:
         if not isinstance(service, Mapping):
             errors.append(f'{name}: missing or invalid service')
             continue
-        unexpected = set(service) - APPROVED_SERVICE_FIELDS
+        # Compose v5 normalizes absent commands/entrypoints into null fields.
+        # Only that inert normalization is permitted; executable overrides fail.
+        unexpected = set(service) - APPROVED_SERVICE_FIELDS - {'command', 'entrypoint'}
         if unexpected:
             errors.append(f"{name}: unreviewed service configuration fields ({', '.join(sorted(unexpected))})")
+        if service.get('command') not in (None, [], ''):
+            errors.append(f'{name}: unreviewed command override')
+        if service.get('entrypoint') not in (None, [], ''):
+            errors.append(f'{name}: unreviewed entrypoint override')
         if _environment_keys(service.get('environment')) != ENVIRONMENT_KEYS.get(
                 name, set()):
             errors.append(f'{name}: environment variable contract changed')
