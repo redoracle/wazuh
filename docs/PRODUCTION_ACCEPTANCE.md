@@ -47,3 +47,7 @@ For authenticated Indexer tests, use a dedicated staging-only reader principal a
 Any P0/P1 security, integrity, access-control or restore failure blocks deployment promotion. Record explicit exception owner/expiry when allowed by organizational policy; never silently treat an untested case as passed. Re-run the affected gates after changing Wazuh versions, certificates, network design, the underlying host or LLM artifacts.
 
 See [enterprise readiness](ENTERPRISE_READINESS.md), [operations](OPERATIONS.md), [upgrade runbook](UPGRADING.md) and [AI validation](AI_VALIDATION.md).
+
+## Supporting procedures
+
+Execute [secure agent enrollment and negative auth tests](AGENT_ENROLLMENT.md), [snapshot and isolated restore](BACKUP_RESTORE.md), and [certificate lifecycle validation](CERTIFICATE_OPERATIONS.md) as separate signed evidence items. The certificate command `python3 scripts/check_certificates.py --min-days 30` is a host-side prerequisite and never appears as a false-green CI check. If a control cannot be tested, mark it **not verified** rather than passed.

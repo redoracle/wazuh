@@ -12,6 +12,8 @@ The indexer volume `wazuh-indexer-data` contains search data; the manager has se
 
 For **consistent indexer backups**, use the Wazuh/OpenSearch-compatible snapshot method supported by the deployed indexer version; merely copying the live data directory can produce an unrecoverable snapshot. Back up manager configuration/rules, agent identity and keys, dashboards/customizations, and TLS/credential materials using a documented consistency window.
 
+The [dedicated backup/restore runbook](BACKUP_RESTORE.md) defines snapshot repository prerequisites, coverage, encryption, restore order and evidence. **No scheduled backup is installed by this repository.**
+
 Test a restore into a segregated environment **before** relying on the backup. Confirm agent enrollment, indexing, dashboard authentication and searches. Store backups encrypted, off-host, with restricted recovery access and retention controls.
 
 ## Restart and stop
@@ -49,3 +51,5 @@ The upstream-based indexer has disabled disk-allocation thresholds. Monitor free
 ## Staged production sign-off
 
 Run `make preflight` for offline source policy checks and use [enterprise readiness](ENTERPRISE_READINESS.md) plus [production acceptance](PRODUCTION_ACCEPTANCE.md) for the operator-run evidence. A Wazuh installation can pass the repository's CI and still fail to ingest events or restore snapshots.
+
+For enrollment incidents or certificate expiry, see [agent enrollment security](AGENT_ENROLLMENT.md) and [certificate lifecycle](CERTIFICATE_OPERATIONS.md).

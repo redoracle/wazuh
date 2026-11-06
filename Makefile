@@ -1,8 +1,8 @@
-.PHONY: help bootstrap bootstrap-check certs config check test ai-test ai-config preflight up status logs down
+.PHONY: help bootstrap bootstrap-check certs config check test ai-test ai-config preflight docs-check cert-check up status logs down
 PYTHON ?= python3
 
 help:
-	@printf '%s\n' 'make bootstrap  - create unique credentials (one time)' 'make certs      - generate TLS certificates (requires Docker)' 'make config     - verify interpolated Compose model' 'make test       - execute offline regression tests' 'make check      - run tests and Compose validation' 'make up         - start the stack' 'make status     - show service status' 'make logs       - follow service logs' 'make down       - stop services (keeps volumes)'
+	@printf '%s\n' 'make bootstrap  - create unique credentials (one time)' 'make certs      - generate TLS certificates (requires Docker)' 'make config     - verify interpolated Compose model' 'make test       - execute offline regression tests' 'make check      - run tests and Compose validation' 'make up         - start the stack' 'make status     - show service status' 'make logs       - follow service logs' 'make down       - stop services (keeps volumes)' 'make docs-check - verify local documentation links (offline)' 'make cert-check - verify TLS cert expiry, trust, key pairs and modes (host)' 
 
 bootstrap:
 	$(PYTHON) scripts/bootstrap.py
@@ -16,7 +16,7 @@ certs:
 config:
 	docker compose -f docker-compose.yml config --quiet
 
-check: test config
+check: test config docs-check
 
 test:
 	$(PYTHON) -m unittest discover -s tests -v
@@ -44,3 +44,11 @@ ai-config:
 # Static, read-only checks. Requires requirements-dev.txt (PyYAML).
 preflight:
 	$(PYTHON) scripts/enterprise_preflight.py --profile controlled
+
+# Offline, dependency-free check for local Markdown links and heading anchors.
+docs-check:
+	$(PYTHON) scripts/check_docs.py
+
+# Operator-only host security check, after generating TLS materials (needs openssl).
+cert-check:
+	$(PYTHON) scripts/check_certificates.py --min-days 30

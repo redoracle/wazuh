@@ -107,6 +107,27 @@ class EnterprisePolicyTests(unittest.TestCase):
         env.chmod(0o644)
         self.assertEqual(self.findings(host=True)['secret_file_permissions'].result, 'block')
 
+    def test_host_generated_directory_rejects_world_search(self):
+        generated = self.root / 'config/generated'
+        generated.mkdir(parents=True)
+        generated.chmod(0o755)
+        self.assertEqual(self.findings(host=True)['generated_config_directory'].result, 'block')
+        generated.chmod(0o700)
+        self.assertEqual(self.findings(host=True)['generated_config_directory'].result, 'pass')
+
+    def test_host_certificate_keys_missing_or_world_readable(self):
+        cert_dir = self.root / 'config/wazuh_indexer_ssl_certs'
+        cert_dir.mkdir(parents=True)
+        self.assertEqual(self.findings(host=True)['certificate_private_key_access'].result, 'warn')
+        for name in ('admin-key.pem', 'wazuh.indexer-key.pem',
+                     'wazuh.manager-key.pem', 'wazuh.dashboard-key.pem'):
+            target = cert_dir / name
+            target.write_text('synthetic key')
+            target.chmod(0o600)
+        self.assertEqual(self.findings(host=True)['certificate_private_key_access'].result, 'pass')
+        (cert_dir / 'admin-key.pem').chmod(0o644)
+        self.assertEqual(self.findings(host=True)['certificate_private_key_access'].result, 'warn')
+
     def test_runtime_host_rejects_symlinked_secret(self):
         actual = self.root / 'private'
         actual.write_text('not printed')

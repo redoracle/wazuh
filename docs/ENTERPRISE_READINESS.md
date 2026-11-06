@@ -37,6 +37,10 @@ Vendor references: [Wazuh Docker installation and single/multi-node architecture
 
 **Do not claim “enterprise-ready”** merely because the `controlled` static policy passes. The `enterprise` policy deliberately fails while architectural and operator-owned gates remain unmet.
 
+## Operational procedures and evidence
+
+The following runbooks document **operator-owned controls**, not auto-installed enterprise services: [secure agent enrollment](AGENT_ENROLLMENT.md), [encrypted off-host backup and isolated recovery](BACKUP_RESTORE.md), and [certificate trust, expiry and rotation](CERTIFICATE_OPERATIONS.md). Record completion and failed negative tests outside Git. Use `make docs-check` for offline documentation validation and `make cert-check` for host-side OpenSSL verification after generating certificates. The host preflight also checks whether generated configuration directories and private TLS keys are exposed to other users.
+
 ## Non-destructive preflight
 
 Install development tooling (`python -m pip install -r requirements-dev.txt`), then run:

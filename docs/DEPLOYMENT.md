@@ -21,7 +21,7 @@ It is intentionally idempotent: running it a second time retains credentials. Pa
 
 Copy the generated `.env` and `config/generated/` securely to backup storage alongside generated certificates. `.env` and generated files must never be added to Git. Local generated configuration must be readable by the corresponding container processes when bind-mounted; the private host directory prevents unprivileged users from traversing to the files.
 
-Generate TLS certificates with the official Wazuh generator:
+Generate TLS certificates with the official Wazuh generator, then run the [certificate validation procedure](CERTIFICATE_OPERATIONS.md):
 
 ```bash
 docker compose -f generate-indexer-certs.yml run --rm generator
@@ -31,7 +31,7 @@ Certificates are stored in ignored `config/wazuh_indexer_ssl_certs/`. Verify the
 
 ## Configure network access
 
-`DASHBOARD_BIND_ADDRESS`, `AGENT_BIND_ADDRESS`, and `API_BIND_ADDRESS` default to `127.0.0.1`. For remote dashboard access, prefer a VPN or SSH tunnel. For remote agents, set `AGENT_BIND_ADDRESS` to an appropriate private host interface and restrict source IPs with the host firewall. Enrollment is an especially sensitive interface; review certificate and authentication requirements before opening it. The indexer remains internal to the Compose network.
+`DASHBOARD_BIND_ADDRESS`, `AGENT_BIND_ADDRESS`, and `API_BIND_ADDRESS` default to `127.0.0.1`. For remote dashboard access, prefer a VPN or SSH tunnel. For remote agents, set `AGENT_BIND_ADDRESS` to an appropriate private host interface and restrict source IPs with the host firewall. Enrollment is an especially sensitive interface: follow the [authenticated enrollment runbook](AGENT_ENROLLMENT.md) and perform negative access tests before opening it. The indexer remains internal to the Compose network.
 
 ## Start and verify
 

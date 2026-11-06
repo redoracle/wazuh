@@ -36,6 +36,7 @@ jobs:
           python -m compileall -q scripts tests integrations
           python -m unittest discover -s tests -v
           python scripts/enterprise_preflight.py --profile controlled
+          python scripts/check_docs.py
 
   compose-config:
     name: Docker Compose configuration

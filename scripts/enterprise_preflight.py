@@ -140,6 +140,27 @@ def evaluate(root: Path = ROOT, *, profile: str = "controlled", host: bool = Fal
                not (cert_dir / name).is_symlink() for name in certs),
                "Expected certificates must exist and must not be symlinks",
                "Generate and verify certificate trust, SAN, expiry and private-key permissions")
+        generated = root / "config/generated"
+        try:
+            config_mode = generated.lstat()
+            config_safe = stat.S_ISDIR(config_mode.st_mode) and stat.S_IMODE(config_mode.st_mode) & 0o007 == 0
+        except OSError:
+            config_safe = False
+        record("generated_config_directory", config_safe,
+               "Generated Indexer hashes, Manager key and dashboard API credentials need private directory access",
+               "Keep config/generated/ a non-symlink, non-world-searchable directory and verify container access")
+        keys = ("admin-key.pem", "wazuh.indexer-key.pem", "wazuh.manager-key.pem", "wazuh.dashboard-key.pem")
+        keys_safe = True
+        for key in keys:
+            try:
+                metadata = (cert_dir / key).lstat()
+                keys_safe = keys_safe and stat.S_ISREG(metadata.st_mode) and stat.S_IMODE(metadata.st_mode) & 0o007 == 0
+            except OSError:
+                keys_safe = False
+        record("certificate_private_key_access", keys_safe,
+               "Private TLS keys must exist, must not be symlinks and must not be world-readable",
+               "Run python3 scripts/check_certificates.py and stage-test UID/GID-compatible permissions",
+               enterprise_only=True)
         if is_safe_env:
             # Parse only the three configured bind variables; never store or print secrets.
             binds = {}

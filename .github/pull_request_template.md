@@ -28,3 +28,6 @@ Link changed README, architecture, operations or upgrade guidance as applicable.
 - [ ] README, security and runbooks reflect the behavior actually implemented.
 
 See [enterprise readiness](https://github.com/redoracle/wazuh/blob/master/docs/ENTERPRISE_READINESS.md) and [production acceptance](https://github.com/redoracle/wazuh/blob/master/docs/PRODUCTION_ACCEPTANCE.md).
+
+- [ ] `make docs-check` passed for documentation changes, including local anchor targets.
+- [ ] Certificate, enrollment or backup instructions include operator ownership, failure handling and matching upstream sources.
