@@ -31,7 +31,7 @@ Check that `advisory.provider` is `none`, `human_review_required` is `true`, and
 ## 2. Prepare Wazuh and a least-privileged Indexer account
 
 1. Complete the base [Wazuh deployment guide](DEPLOYMENT.md) and generate the indexer TLS certificates. Confirm the main stack is healthy.
-2. In **Wazuh Dashboard → Indexer management → Security** (menu names vary by upstream version), use the supported OpenSearch Security UI/API to create a **new** role `wazuh_ai_alert_reader`. Set **no cluster or tenant permissions**, and grant only the `read` index permission on `wazuh-alerts-4.x-*`. You may choose a narrower index pattern and field-level security (FLS) policy where supported. Do not include `wazuh-archives-*` or broad `wazuh-*` patterns.
+2. In **Wazuh Dashboard → Indexer management → Security** (menu names vary by upstream version), use the supported OpenSearch Security UI/API to create a **new** role `wazuh_ai_alert_reader`. Set **no cluster or tenant permissions**, and grant the `search` index action group on `wazuh-alerts-4.x-*` (a narrower default group than `read`). You may choose a narrower index pattern and field-level security (FLS) policy where supported. Do not include `wazuh-archives-*` or broad `wazuh-*` patterns.
 3. Create a dedicated internal user `wazuh-ai-reader`, give it a unique random password, and map **only** the new role to it. Do **not** reuse `admin`, `kibanaserver`, or `wazuh-wui` credentials. Follow upstream [OpenSearch role and user instructions](https://docs.opensearch.org/latest/security/access-control/users-roles/). Role/user changes must be made through the **running** security index, not by editing the initial `config/generated/internal_users.yml` bootstrap file.
 4. Verify the account can perform a bounded search on alert indices, **cannot** access non-alert indices, and **cannot** write, delete, manage roles or execute Manager API actions. Do not proceed if negative authorization tests have not been performed.
 
@@ -43,14 +43,14 @@ Example restricted role shape (create through Security UI or approved authentica
   "index_permissions": [
     {
       "index_patterns": ["wazuh-alerts-4.x-*"],
-      "allowed_actions": ["read"]
+      "allowed_actions": ["search"]
     }
   ],
   "tenant_permissions": []
 }
 ```
 
-The `read` action group is granted by OpenSearch Security. Prefer even narrower individual read actions and field-level security when operationally feasible; test any such restrictions against your actual Wazuh/OpenSearch version. The **CLI itself does not confer read-only rights**; these must be enforced server-side.
+OpenSearch documents `search` as a narrower index action group than `read`. The former permits searches and some related resolution operations; it is **not** an HTTP-path-only restriction. Verify the role can execute this CLI's exact request and cannot retrieve other indices or modify data. If supported, apply field-level security to the source fields used by the CLI; note that the Indexer role may otherwise read all alert fields independently of the CLI's local filtering. See [default action groups](https://docs.opensearch.org/latest/security/access-control/default-action-groups/) and [permission testing](https://docs.opensearch.org/latest/security/access-control/permissions/). The **CLI cannot enforce server-side least privilege**.
 
 ## 3. Store the AI reader password privately
 
@@ -132,7 +132,7 @@ CPU-only 8B inference can be slow. Verify memory, CPU/GPU capacity and runtime l
 | Symptom | Likely cause / safe check |
 | --- | --- |
 | No alerts | Check time window (1–60 minutes), `--min-level` and actual alert indices; empty output is not proof the environment is clean |
-| `403` or search error | Confirm the dedicated role mapping grants `read` only for the intended alert index; do not swap in administrator credentials |
+| `403` or search error | Confirm the dedicated role mapping grants `search` only on the intended alert indices; do not swap in administrator credentials |
 | TLS handshake error | Regenerate/verify the Wazuh CA using the supported process; inspect DNS/hostnames; do not disable TLS verification |
 | Model unavailable | Verify `ai-ollama` health, availability of the selected local model and available RAM; omit `--ollama` to retain deterministic metadata triage |
 | Unexpected Docker permissions | Ensure `local-secrets` exists and the password is an accessible regular file; never relax to world-readable permissions |

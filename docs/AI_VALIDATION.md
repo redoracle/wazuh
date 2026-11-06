@@ -1,5 +1,16 @@
 # AI integration validation, acceptance, and incident response
 
+## Verification status and supported scope
+
+| Capability | Current evidence | Required before an operational claim |
+| --- | --- | --- |
+| Offline JSONL projection with no model | Unit tested with synthetic and malicious fields | Reproduce the offline HOWTO locally |
+| Fixed Indexer HTTPS search and TLS options | Requests mocked in Python tests; Wazuh documents the Indexer search API | Successful version-specific staging connection with dedicated `search` role and denied write/other-index checks |
+| Ollama local `/api/chat` JSON parsing | Request and JSON-output contracts unit tested; no actual model is downloaded or invoked in CI | Pull a vetted model, run inference on synthetic fixtures, inspect output, latency and logs |
+| End-to-end Wazuh → model → analyst | **Not validated** by CI or an integrated staging environment | Complete the acceptance checklist and have a SOC analyst sign off |
+
+The integration is an optional, independently maintained helper, **not** a Wazuh-native AI component or a verified autonomous detection engine. Neither the project documentation nor passing CI should be interpreted as evidence of production model accuracy.
+
 ## What CI proves
 
 The repository's GitHub Actions matrix runs Python syntax checks and offline unit tests for Python 3.11, 3.13 and 3.14. It also renders the **base and opt-in overlay Compose configurations** without starting containers. Offline tests cover schema filtering, bounded read-only search, TLS context creation, endpoint allowlists, adversarial fields, model output parsing and bounded size, audit minimalism, fail-closed errors, and no-network file mode.
@@ -16,7 +27,7 @@ docker compose -f docker-compose.yml -f docker-compose.ai.yml config --quiet
 ## Production-gate checklist (operator-executed)
 
 - [ ] Confirm actual central-component version, index pattern `wazuh-alerts-4.x-*`, alert timestamp mapping and TLS certificate SAN against the deployment.
-- [ ] Create the **dedicated Indexer role and internal user**; verify allowed bounded alert search and rejected query to non-alert indices, rejected writes, rejected role/agent-management calls. Never test destructive actions against production; perform authorization tests in staging.
+- [ ] Create the **dedicated Indexer role and internal user**; verify that the role permits the exact alert search, denies non-alert index reads, and denies writes and security administration. Use the OpenSearch `search` action group (not the broader `read` group) as a starting point. Never test destructive actions against production; perform authorization tests in staging.
 - [ ] Validate that `local-secrets` and model/audit storage have suitable owner, mode, encryption at rest and retention limits, and that no secret appears in Compose output, system logs, stdout or CI artifacts.
 - [ ] Confirm the model and worker images, digests, software bills of materials and vulnerabilities meet organization policy; review model license and provenance. A release tag is not an immutable digest.
 - [ ] Test model accuracy using **sanitized, human-labeled** alerts representing expected severity distribution, false positives, MITRE group labels and adversarial log content. Measure precision, recall, unsupported claims, latency, token utilization and refusal behavior before routing decisions to analysts.

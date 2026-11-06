@@ -1,55 +1,47 @@
-# AI integrations for Wazuh: engineering evaluation
+# Self-hosted AI-assisted Wazuh operations
 
-**Reviewed:** 2026-11-06 · **Wazuh deployment:** [release-matched v4.14.9](../README.md) · **Status:** optional, human-supervised integrations. The default deployment does not launch AI services or give a model access to Wazuh.
+**Reviewed:** 2026-11-06 · **Base deployment:** Wazuh [4.14.9](../README.md) · **Implementation:** optional, independently maintained Python CLI and local Ollama; not a native Wazuh AI feature.
 
-## Recommendation
+This guide describes **only functionality implemented in this repository or supported by documented self-hosted APIs**. A passing offline test does not establish that the live integration or its model's security conclusions have been validated on a real Wazuh installation. There is no automatic incident response, built-in chatbot, autonomous threat hunter, or model-driven agent management.
 
-Start with **offline or read-only alert triage plus a local Ollama model** using the included [`triage.py`](../integrations/ai_triage/triage.py). It performs one bounded `POST /wazuh-alerts-4.x-*/_search` against the Wazuh **indexer API**, removes all fields except allowlisted alert metadata, and optionally sends only that projection to a locally hosted model. All results are advisory; analysts must corroborate them with primary evidence.
+## What is actually available
 
-This design deliberately **does not** grant the model Manager API tokens, Docker socket access, Wazuh active-response permissions, or the ability to compose arbitrary indexer queries. It does not change the primary Wazuh deployment by default. See [hands-on guide](AI_HOWTO.md), [security](AI_SECURITY.md), and [validation](AI_VALIDATION.md).
+| Self-hosted capability | Implemented here | Evidence / verification | Limitations |
+| --- | --- | --- | --- |
+| **Offline metadata triage** | Python 3.11+ [`triage.py`](../integrations/ai_triage/triage.py) processes a bounded synthetic JSONL fixture with no network and no model | Deterministic unit tests and reproducible [offline HOWTO](AI_HOWTO.md#1-offline-dry-run--no-docker-no-model-no-network) | Provides an alert summary, **not** detection or validated threat attribution |
+| **Read-only Wazuh Indexer alert search** | Fixed HTTPS `POST /wazuh-alerts-4.x-*/_search` with restricted time, severity and result count; optional Docker overlay | Official [Wazuh Indexer API](https://documentation.wazuh.com/current/user-manual/indexer-api/reference.html) and [alert index names](https://documentation.wazuh.com/current/user-manual/wazuh-indexer/wazuh-indexer-indices.html); requests and TLS tested with mocks | **Live Wazuh 4.14.9 connection and reader-role authorization not tested in CI**; operator must verify in staging |
+| **Local Ollama inference** | Explicit `--ollama` option calls Ollama's local `/api/chat` endpoint with **only filtered metadata** and parses bounded JSON output | Documented [Ollama API](https://docs.ollama.com/api); prompt construction, response parsing and endpoint restrictions exercised in offline tests | **A downloaded model's inference quality, latency, resource usage and image integrity are not CI-verified** |
+| **Human-supervised investigation** | Results contain an untrusted advisory and `human_review_required: true`; model has no tools or Wazuh write API | Code paths and regression tests ensure no commands or Wazuh operations are dispatched | Analyst must independently investigate the original events in Wazuh; model output is not evidence |
 
-## Approaches compared
+All functionality is **opt-in**. The ordinary `docker compose up -d` continues running only the Wazuh manager, indexer and dashboard. The model container has no published host port and is not joined to the Wazuh application network. The bridge worker connects to both networks and remains a sensitive trust boundary; isolation depends on host, Docker and network policy.
 
-| Approach | Availability / support | Data path | Capability | Principal risks | Recommendation |
-| --- | --- | --- | --- | --- | --- |
-| **Wazuh Cloud AI Analyst** | Official, *Wazuh Cloud* subscription feature; **not** a self-hosted `docker compose` component | Wazuh Cloud → AWS Bedrock/Anthropic processing according to vendor policy | Periodic alert, endpoint and vulnerability reports | Contractual/data-governance review; does not expose a local plugin | Cloud subscribers seeking managed reports |
-| **Wazuh AI Assistant (OpenSearch/MCP gateway)** | Example maintained under `wazuh/integrations`; explicitly review version prerequisites and deployment as an integration project | Dashboard ML Commons → gateway → LLM/MCP → Wazuh APIs/indexer | Interactive threat hunting and potentially **agent-management actions** | Extensive permissions, remote provider disclosure, prompt injection, high operational complexity | Controlled pilot only, read-only tools first |
-| **Ollama with constrained local triage (this repo)** | Independent, opt-in implementation; original integration code, not a Wazuh product | Narrow indexer read → schema projection → local Ollama → human review | Summarization and investigation hypotheses; no actions | Model hallucination, local resource usage, container/network trust, host-side audit handling | **Preferred starting point** |
-| **Community Wazuh MCP servers** | Third-party projects; capabilities and maintenance vary | MCP client ↔ server ↔ indexer/Manager API | Natural-language tool access, telemetry and sometimes state changes | Tool inventory can contain write methods; auth/OAuth exposure; prompt-driven tool invocation | Review code, disable writes, isolate service and enforce RBAC before adoption |
-| **Hosted ChatGPT/Claude alert enrichment** | Wazuh examples and commercial APIs, not an automatic part of Wazuh Docker | Alerts sent outside deployment | Summaries, prioritization, extraction | Sensitive logs/PII externalized, cost/retention/region, untrusted model output | Off by default; opt in only after legal/security approval and field minimization |
-| **n8n / Mindflow / SOC orchestration** | Third-party services and workflow platforms | Workflow connector → Indexer/Manager APIs → LLM or ticketing | Ticket creation, human approvals, triage orchestration | Token proliferation, action workflows, workflow/plugin supply chain | Suitable later for human-approved ticket enrichment; do not enable auto-response initially |
+## Recommended operating pattern
 
-**Privacy caveat:** Running Ollama locally avoids intentionally sending prompts to a hosted inference API, **provided model pulls, telemetry, egress routes and the actual runtime configuration are audited**. It does not automatically protect data against compromised local hosts, unexpected proxying, logging or prompt injection. MCP tool results can also contain sensitive data: using MCP does **not** guarantee that only abstracted logs reach the model.
+1. **Start with deterministic offline review.** Run a synthetic alert through the CLI with no model and verify that secrets, user names, hostnames, full logs, IP addresses and commands never appear in its report.
+2. **Use a dedicated Indexer account.** Its role must permit only the required search operation on `wazuh-alerts-4.x-*`; test the actual role permissions in staging. The CLI's metadata filtering is **not** a substitute for Indexer-side RBAC or optional field-level security.
+3. **Enable Ollama only for human-readable hypotheses.** Select and inspect a local model; review its license and deployment footprint. Treat every generated recommendation as a possible hallucination or instruction-injection artifact.
+4. **Keep incident actions outside the AI process.** No automatic blocks, agent actions, shell execution, index writes, case updates or configuration changes. Require independent evidence and existing SOC approval processes.
+5. **Validate before regular use.** Test TLS, user-role denial rules, model responses, data minimization, CPU/RAM pressure and fail-closed paths. See the [acceptance checklist](AI_VALIDATION.md).
 
-## Facts that matter operationally
+## Security and privacy boundaries
 
-- The **Wazuh Manager API** (normally `55000`) manages Wazuh and agents; the **Wazuh Indexer API** (normally `9200`) is the supported source for querying indexed `wazuh-alerts-*` documents. Do **not** assume a `GET /alerts` Manager endpoint exists simply because a tutorial uses it. This project queries the indexer over TLS with a dedicated restricted principal.
-- Upstream Wazuh's AI Assistant guide uses ML Commons, a gateway, and MCP tools; its documented agent-management flows are **outside the scope** of this read-only integration. Its published tested environment and prerequisites may differ from this repository's Wazuh 4.14.9 deployment. Integration against 4.14.9 **has not been demonstrated** here.
-- Wazuh's agentic AI/Qwen3/Ollama blog explicitly calls its implementation a **proof of concept**. It is a useful architecture reference, not proof that the entire workflow is certified for production.
-- Remote assistants can require an authenticated, internet-accessible MCP endpoint. Do not publish a Wazuh API or MCP server to the Internet merely to make a connector work.
-- Wazuh Cloud AI Analyst's vendor privacy claims apply **to the Cloud service**, not automatically to independently configured third-party LLM connectors.
+- The worker sends only timestamp, numeric rule ID/level, validated rule groups, MITRE technique identifiers and a per-run pseudonymized agent reference to Ollama. This is **still potentially sensitive security metadata**; protect output and container/network traffic.
+- The Indexer reader **may be able to retrieve raw indexed alert fields** even though this CLI requests and forwards only a small projection. Enforce the smallest available index action group (`search`), consider field-level security where supported, protect the credential and verify permissions independently.
+- The Ollama endpoint is restricted in code to `127.0.0.1`, `localhost` or the private Compose service `ai-ollama` on port `11434`; the indexer endpoint must use TLS and a trusted CA. The worker disables ambient HTTP proxies and redirects. **Neither rule is a substitute for firewall and egress controls.**
+- Starting Ollama and fetching models can require network access; **self-hosted does not mean air-gapped**. Review model artifacts, image digests, network policy, resource limits and logs before use.
+- Confidence labels generated by an LLM are **not calibrated detection scores**. Evaluate summaries and hypotheses with a human-labeled local test set before using them in your SOC workflow.
 
-## Decision record
+## Deliberately not provided
 
-1. **Data origin:** read-only Indexer search; no Manager API, active response or arbitrary MCP tool calls.
-2. **Data minimization:** include only timestamp, numeric rule ID and level, validated rule groups/MITRE technique IDs, and per-run HMAC-pseudonymized agent identifier; never send event body, file paths, usernames, IPs, command lines, file hashes or indexed raw logs to an LLM.
-3. **Model:** explicit `--ollama` opt-in; only `http://127.0.0.1:11434` or private Compose DNS `http://ai-ollama:11434` are accepted by the client.
-4. **Trust:** model output remains untrusted JSON; no runtime execution, no tools, no automated containment or Wazuh writes.
-5. **Bounded workload:** 1–50 alerts, 1–60 minute windows, severity filter, 2–60 s timeout, strict request/response limits; failures fail closed.
-6. **Transport:** Indexer TLS verification required against generated root CA; no `verify=False`, `curl -k`, HTTP downgrade, proxy environment, arbitrary redirects, or unfettered host URLs.
+This repository does **not** ship an MCP server, autonomous SOC agent, natural-language query planner, dashboard chatbot, external inference adapter, threat-response executor or agent administration capability. Such additions would require a separate code/security review and version-specific runtime verification. Do not infer those features from Wazuh's general AI articles, integration examples or community projects.
 
-## Primary sources and implementation references
+## Implementation and independent references
 
-- [Wazuh AI Analyst — Wazuh Cloud documentation](https://documentation.wazuh.com/current/cloud-service/ai-analyst.html)
-- [Wazuh Indexer API — reference](https://documentation.wazuh.com/current/user-manual/indexer-api/reference.html)
-- [Wazuh indexer indices, including alert index patterns](https://documentation.wazuh.com/current/user-manual/wazuh-indexer/wazuh-indexer-indices.html)
-- [Wazuh maintained AI Assistant integration example](https://github.com/wazuh/integrations/tree/main/integrations/AI_assistant)
-- [Wazuh maintained ChatGPT integration example](https://github.com/wazuh/integrations/tree/main/integrations/ChatGPT)
-- [Wazuh: Threat hunting with Agentic AI](https://wazuh.com/blog/threat-hunting-with-agentic-ai/)
-- [Wazuh: Leveraging AI for threat hunting](https://wazuh.com/blog/leveraging-artificial-intelligence-for-threat-hunting-in-wazuh/)
-- [SOCFortress Wazuh MCP Server (community)](https://github.com/socfortress/Wazuh-MCP-Server)
-- [GenSecAI Wazuh MCP Server (community)](https://github.com/gensecaihq/Wazuh-MCP-Server)
-- [Ollama local API](https://docs.ollama.com/api)
-- [OpenSearch Security roles](https://docs.opensearch.org/latest/security/api/roles/create-role/)
+- [Operational HOWTO](AI_HOWTO.md) — from synthetic data through a dedicated reader and optional local Ollama.
+- [Architecture and threats](AI_SECURITY.md) — trust boundaries, alert-field minimization, model and credential risks.
+- [Validation and incident response](AI_VALIDATION.md) — exact evidence available today and the outstanding live acceptance gates.
+- [Wazuh Indexer API](https://documentation.wazuh.com/current/user-manual/indexer-api/reference.html) and [Wazuh alert indices](https://documentation.wazuh.com/current/user-manual/wazuh-indexer/wazuh-indexer-indices.html) — vendor-documented local query capabilities.
+- [OpenSearch Security action groups](https://docs.opensearch.org/latest/security/access-control/default-action-groups/) and [role permission verification](https://docs.opensearch.org/latest/security/access-control/permissions/) — server-enforced least privilege.
+- [Ollama API reference](https://docs.ollama.com/api) — local model API contract; model behavior remains unverified until a real inference test.
 
-These links are **references**, not imported code, endorsements, guarantees of compatibility or promises of future upstream maintenance. See [CI and live validation boundaries](AI_VALIDATION.md).
+The sources document **APIs and authorization primitives**, not a Wazuh-endorsed, production-certified AI service. All integration-specific code is maintained independently in this repository.

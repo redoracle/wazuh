@@ -63,5 +63,28 @@ class AIDeploymentSecurityTests(unittest.TestCase):
         self.assertIn('docker-compose.ai.yml', howto)
 
 
+    def test_docs_describe_only_verifiable_self_hosted_capabilities(self):
+        paths = [ROOT / 'README.md', ROOT / 'CHANGELOG.md']
+        paths.extend(sorted((ROOT / 'docs').glob('AI_*.md')))
+        combined = '\n'.join(p.read_text(encoding='utf-8') for p in paths)
+        for unsupported_claim in ('Wazuh Cloud AI Analyst', 'Hosted ChatGPT',
+                                  'Claude', 'Mindflow', 'AWS Bedrock'):
+            with self.subTest(phrase=unsupported_claim):
+                self.assertNotIn(unsupported_claim, combined)
+        for required in ('local Ollama', 'Wazuh Indexer', 'human', 'not tested'):
+            self.assertIn(required.lower(), combined.lower())
+        evaluation = (ROOT / 'docs/AI_INTEGRATIONS.md').read_text(encoding='utf-8')
+        self.assertIn('Live Wazuh 4.14.9 connection', evaluation)
+        self.assertIn('not CI-verified', evaluation)
+
+    def test_documented_indexer_role_grants_only_search(self):
+        import re
+        howto = (ROOT / 'docs/AI_HOWTO.md').read_text(encoding='utf-8')
+        self.assertRegex(howto, r'"allowed_actions": \["search"\]')
+        self.assertNotRegex(howto, r'"allowed_actions": \["read"\]')
+        self.assertIn('field-level security', howto)
+        self.assertIn('cannot enforce server-side least privilege', howto)
+
+
 if __name__ == '__main__':
     unittest.main()

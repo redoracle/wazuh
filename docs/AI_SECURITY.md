@@ -39,15 +39,15 @@ flowchart LR
 
 ## Operating rules
 
-1. **Least privilege is enforced in the Indexer, not trusted to the client.** Grant the AI account `read` only for intended alert indices. The example uses `wazuh-alerts-4.x-*` and no cluster/tenant permissions. Test denial of writes and reading unrelated indices before acceptance.
+1. **Least privilege is enforced in the Indexer, not trusted to the client.** Grant the AI account only the `search` action group for intended alert indices; this is narrower than OpenSearch's `read` group, but still allows the principal to search raw alert documents if field-level restrictions are absent. The example uses `wazuh-alerts-4.x-*` and no cluster/tenant permissions. Test denial of writes and reading unrelated indices before acceptance.
 2. **No automatic operational action.** This repo will not translate model output into shell commands, manager API actions, network blocks, agent restarts or incident changes. Human decisions follow documented change controls.
-3. **Local by default.** No cloud API credentials, ChatGPT calls, externally exposed MCP endpoint or new published model port. An external provider integration is a separate security/legal change requiring scoped prompt fields and explicit approval.
+3. **Local and opt-in.** The included worker calls only the Wazuh Indexer and an explicitly enabled local Ollama endpoint. Neither the model nor the Indexer publishes new host ports in this overlay; enforce firewall and container egress policy independently.
 4. **Validate transport.** The worker refuses plaintext Indexer HTTP and HTTPS with an untrusted/self-signed CA; it requires the generated trusted root CA. It rejects URL credentials, query strings and redirects.
-5. **Retention and compliance.** Do not forward reports to public ticketing/chat or hosted AI without approval. Protect `local-state` and `local-secrets` (mode 0700 for directories, 0600 for files); rotate the dedicated Indexer password through its supported runtime security management process.
+5. **Retention and compliance.** Do not forward reports to unapproved destinations. Protect `local-state` and `local-secrets` (mode 0700 for directories, 0600 for files); rotate the dedicated Indexer password through its supported runtime security management process.
 6. **Read-only is not read-safe.** Some alerts contain attacker-authored content. Prompt injection is mitigated by projection and tool-free inference, not eliminated. Analysts must independently validate all conclusions.
 
-## Security review checklist for MCP or orchestration integrations
+## Integration scope and change control
 
-Before integrating Claude, ChatGPT, n8n, Mindflow or any Wazuh MCP service, require: an exhaustive **tool inventory** (including hidden/write methods), authentication with per-client RBAC, TLS and mTLS/OAuth as appropriate, independent egress protection, prompt-data classification, explicit approval per state-changing operation, no public indexer/manager endpoint, negative authorization tests, version-tested compatibility, audit logs, dependency and container scanning, model/provider retention review, and failure-injection tests. Review tools after every upstream connector update.
+This repository does not include an MCP server, remotely hosted model gateway or autonomous agent framework. These integrations have not been exercised against this Wazuh Docker stack and must not be presented as validated capabilities. Any future integration must undergo independent authentication, privilege, tool-inventory, data-egress and version-specific tests before becoming an operator-facing feature.
 
-Reference: [OpenSearch role API](https://docs.opensearch.org/latest/security/api/roles/create-role/), [Wazuh Indexer API](https://documentation.wazuh.com/current/user-manual/indexer-api/reference.html), [Wazuh Cloud AI Analyst](https://documentation.wazuh.com/current/cloud-service/ai-analyst.html).
+References: [OpenSearch role API](https://docs.opensearch.org/latest/security/api/roles/create-role/), [OpenSearch permission groups](https://docs.opensearch.org/latest/security/access-control/default-action-groups/), and [Wazuh Indexer API](https://documentation.wazuh.com/current/user-manual/indexer-api/reference.html).
