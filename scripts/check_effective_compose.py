@@ -99,9 +99,13 @@ def main(argv: list[str] | None = None) -> int:
         result = check(json.loads(source), ai=args.ai)
         print(json.dumps(result, sort_keys=True))
         return 0
-    except (ComposePolicyError, ValueError, TypeError) as exc:
-        # json errors have no secret payloads because only fixed text is printed.
-        print('Effective Compose policy check failed; review exposure and isolation', file=sys.stderr)
+    except ComposePolicyError as exc:
+        # All policy errors originate from fixed, credential-free diagnostics.
+        print(f'Effective Compose policy: {exc}', file=sys.stderr)
+        return 1
+    except (ValueError, TypeError):
+        # JSON parser exceptions may include input fragments; never echo them.
+        print('Effective Compose JSON could not be parsed', file=sys.stderr)
         return 1
 
 
