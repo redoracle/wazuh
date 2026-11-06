@@ -14,7 +14,7 @@ For upstream component changes, see [Wazuh Docker v4.14.9](https://github.com/wa
 
 ## Unreleased — optional AI-assisted operations
 
-- Add independent research comparison of Wazuh Cloud AI Analyst, MCP integrations, local LLMs and SOC orchestration.
+- Document implemented self-hosted triage, official local API contracts and explicitly unverified runtime behavior; do not promote hosted AI services.
 - Add opt-in, bounded read-only Wazuh Indexer alert triage CLI with metadata-only local Ollama inference, fail-closed security controls, per-run pseudonyms and minimal audit logs.
 - Add independent Compose overlay with private AI model network and no additional host-published ports; base Wazuh 4.14.9 stack remains unchanged.
 - Add setup, threat-model, operations, benchmark and rollback guides, plus offline security regression tests.
