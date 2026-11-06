@@ -88,8 +88,15 @@ class BootstrapTests(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     bootstrap.bootstrap()
 
-    def test_initialization_not_present_on_repository_checkout(self):
-        self.assertFalse((bootstrap.ROOT / ".env").exists())
+    def test_check_initialized_reports_missing_files_in_isolated_empty_checkout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with (patch.object(bootstrap, 'ROOT', root),
+                  patch.object(bootstrap, 'ENV', root / '.env'),
+                  patch.object(bootstrap, 'GENERATED', root / 'config' / 'generated')):
+                missing = bootstrap.check_initialized()
+        self.assertIn('.env', missing)
+        self.assertIn('config/generated/authd.pass', missing)
 
 
 if __name__ == "__main__":

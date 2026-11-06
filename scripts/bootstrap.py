@@ -13,7 +13,9 @@ import os
 from pathlib import Path
 import re
 import secrets
+import shutil
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 GENERATED = ROOT / "config" / "generated"
@@ -125,35 +127,76 @@ def check_initialized() -> list[str]:
 
 
 def bootstrap() -> None:
-    expected_paths = (ENV, GENERATED / "internal_users.yml", GENERATED / "wazuh.yml", GENERATED / "wazuh_manager.conf", GENERATED / "authd.pass")
-    if any(path.exists() for path in expected_paths):
-        if not check_initialized():
-            print("Already initialized. Existing credentials were preserved.")
-            return
-        raise RuntimeError("Partial initialization detected; inspect files before retrying. No credentials changed.")
+    """Publish a complete initialization, or leave the target paths unchanged.
 
-    defaults = EXAMPLE.read_text(encoding="utf-8")
-    validate_defaults(defaults)
-    credentials = {name: random_secret() for name in EXPECTED}
-    manager = make_manager_config(secrets.token_hex(16))
-    enrollment_password = secrets.token_hex(32)
-    users = make_internal_users(credentials["INDEXER_PASSWORD"], credentials["DASHBOARD_PASSWORD"])
-    dashboard = make_dashboard_config(credentials["API_PASSWORD"])
-    env_body = defaults.rstrip("\n") + "\n" + "".join(f"{key}={value}\n" for key, value in credentials.items())
+    All secret material is written within a private staging directory first.
+    A lock acquired with O_EXCL serializes cooperating invocations; publishing
+    the environment last marks successful initialization. Interrupted staging
+    is deliberately not re-used. A hard process kill still needs operator
+    inspection of any ignored .bootstrap-* staging directory.
+    """
+    lock = ROOT / ".bootstrap.lock"
+    flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0)
+    lock_fd = os.open(lock, flags, 0o600)
+    os.close(lock_fd)
+    staging: Path | None = None
+    moved = False
+    published = False
+    try:
+        expected_paths = (
+            ENV,
+            GENERATED / "internal_users.yml",
+            GENERATED / "wazuh.yml",
+            GENERATED / "wazuh_manager.conf",
+            GENERATED / "authd.pass",
+        )
+        if any(path.exists() or path.is_symlink() for path in expected_paths):
+            if not check_initialized():
+                print("Already initialized. Existing credentials were preserved.")
+                return
+            raise RuntimeError("Partial initialization detected; inspect files before retrying. No credentials changed.")
+        if GENERATED.exists() or GENERATED.is_symlink():
+            raise RuntimeError("An existing generated directory requires inspection before initialization")
 
-    GENERATED.mkdir(mode=0o700, parents=True, exist_ok=True)
-    os.chmod(GENERATED, 0o700)
-    # Docker processes need to read bind-mounted files; the parent host folder
-    # is 0700. Do not change the host folder's permissions.
-    files = (
-        (GENERATED / "internal_users.yml", users, 0o644),
-        (GENERATED / "wazuh.yml", dashboard, 0o644),
-        (GENERATED / "wazuh_manager.conf", manager, 0o644),
-        (GENERATED / "authd.pass", enrollment_password + "\n", 0o640),
-        (ENV, env_body, 0o600),
-    )
-    for path, content, mode in files:
-        write_secure(path, content, mode)
+        defaults = EXAMPLE.read_text(encoding="utf-8")
+        validate_defaults(defaults)
+        credentials = {name: random_secret() for name in EXPECTED}
+        manager = make_manager_config(secrets.token_hex(16))
+        enrollment_password = secrets.token_hex(32)
+        users = make_internal_users(credentials["INDEXER_PASSWORD"], credentials["DASHBOARD_PASSWORD"])
+        dashboard = make_dashboard_config(credentials["API_PASSWORD"])
+        env_body = defaults.rstrip("\n") + "\n" + "".join(f"{key}={value}\n" for key, value in credentials.items())
+
+        GENERATED.parent.mkdir(parents=True, exist_ok=True)
+        staging = Path(tempfile.mkdtemp(prefix=".bootstrap-", dir=GENERATED.parent))
+        os.chmod(staging, 0o700)
+        for name, contents, mode in (
+            ("internal_users.yml", users, 0o644),
+            ("wazuh.yml", dashboard, 0o644),
+            ("wazuh_manager.conf", manager, 0o644),
+            ("authd.pass", enrollment_password + "\n", 0o640),
+            (".env.bootstrap", env_body, 0o600),
+        ):
+            write_secure(staging / name, contents, mode)
+
+        if ENV.exists() or ENV.is_symlink() or GENERATED.exists() or GENERATED.is_symlink():
+            raise RuntimeError("Deployment paths changed during initialization; no credentials published")
+        # Directory rename makes the service files available as one unit.
+        os.rename(staging, GENERATED)
+        moved = True
+        # Hard-link creation fails if .env appeared concurrently. This prevents
+        # accidentally overwriting credentials, unlike os.replace(..., ENV).
+        os.link(GENERATED / ".env.bootstrap", ENV, follow_symlinks=False)
+        published = True
+        (GENERATED / ".env.bootstrap").unlink()
+    finally:
+        if not published:
+            if moved:
+                shutil.rmtree(GENERATED)
+            elif staging is not None and staging.exists():
+                shutil.rmtree(staging)
+        lock.unlink()
+
     print("Credentials, enrollment password and configuration created. Keep .env and config/generated private.")
     print("Next: docker compose -f generate-indexer-certs.yml run --rm generator")
     print("Then: docker compose config --quiet && docker compose up -d")

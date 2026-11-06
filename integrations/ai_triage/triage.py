@@ -17,6 +17,7 @@ from pathlib import Path
 import re
 import secrets
 import ssl
+import stat
 import sys
 import urllib.error
 import urllib.parse
@@ -115,16 +116,25 @@ def fetch_indexer(*, url: str, ca_file: str, username: str,
     if not SAFE_USERNAME.fullmatch(username):
         raise TriageError("Invalid read-only indexer username")
     p = Path(password_file)
-    if not p.is_file() or p.is_symlink():
-        raise TriageError("Indexer password must be a regular, non-symlink file")
-    if p.stat().st_size > 256:
+    try:
+        mode = p.lstat()
+    except OSError as exc:
+        raise TriageError("Indexer password file is missing or inaccessible") from exc
+    if not stat.S_ISREG(mode.st_mode) or mode.st_nlink != 1:
+        raise TriageError("Indexer password must be a regular, non-linked file")
+    if os.name == "posix" and stat.S_IMODE(mode.st_mode) & 0o077:
+        raise TriageError("Indexer password must not be group/world accessible")
+    if mode.st_size > 256:
         raise TriageError("Indexer password file exceeds size limit")
     password = p.read_text(encoding="utf-8").strip("\r\n")
     if not password or len(password) > 200:
         raise TriageError("Invalid indexer password file")
     if not Path(ca_file).is_file():
         raise TriageError("Indexer root CA file not found")
-    context = ssl.create_default_context(cafile=ca_file)
+    try:
+        context = ssl.create_default_context(cafile=ca_file)
+    except (OSError, ValueError, ssl.SSLError) as exc:
+        raise TriageError("Unable to validate the trusted Indexer CA") from exc
     response = send_json(
         f"{base}/{INDEX_PATTERN}/_search", search_query(minutes, min_level, count),
         context=context, auth=(username, password), timeout=timeout,
@@ -264,7 +274,13 @@ def audit(path: str, *, source: str, count: int, ollama: bool, status: str) -> N
     flags = os.O_CREAT | os.O_WRONLY | os.O_APPEND | getattr(os, "O_NOFOLLOW", 0)
     fd = os.open(path, flags, 0o600)
     try:
-        os.write(fd, (json.dumps(item, separators=(",", ":")) + "\n").encode())
+        metadata = os.fstat(fd)
+        if (not stat.S_ISREG(metadata.st_mode) or
+                stat.S_IMODE(metadata.st_mode) & 0o077 or metadata.st_nlink != 1):
+            raise TriageError("Audit log must be an owner-only regular file without hard links")
+        data = (json.dumps(item, separators=(",", ":")) + "\n").encode()
+        if os.write(fd, data) != len(data):
+            raise TriageError("Unable to persist complete audit record")
     finally:
         os.close(fd)
 
@@ -292,7 +308,8 @@ def cli(argv: list[str] | None = None) -> int:
         parser.error("--input-file is required for offline file mode")
     if args.source == "indexer" and not all((args.ca_file, args.user, args.password_file)):
         parser.error("--ca-file, --user and --password-file are required for indexer mode")
-    os.umask(0o077)
+    # Sensitive audit files are created with explicit mode 0600 by audit().
+    # Never change the process-wide umask in a library-callable CLI.
     count = 0
     try:
         now = utcnow()

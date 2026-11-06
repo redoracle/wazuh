@@ -32,3 +32,6 @@ For upstream component changes, see [Wazuh Docker v4.14.9](https://github.com/wa
 - Enabled single-data-node Indexer disk thresholds at low/high/flood 85/90/95, subject to staging verification and capacity/ingestion recovery tests.
 - Added an isolated, plan-by-default snapshot helper and backup Compose overlay, with strict alert-index scoping and verification. Full off-host backup/restore still requires operator provisioning and evidence.
 - Added pinned official multi-node inventory validation, read-only Docker runtime/GitHub governance probes, and a scheduled SHA-pinned Trivy image vulnerability scan. HA deployment, immutable image approval, branch protection and signed production acceptance remain gated.
+
+- Improved test integrity with transactional first-run credential publication, caller-umask isolation, and strict existing audit-file permissions.
+- Added local loopback TLS/API contracts, real generated X.509 fixtures, and effective Docker Compose policy verification; staged live Wazuh tests remain required.

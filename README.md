@@ -143,7 +143,7 @@ For actionable host procedures, use the [agent enrollment security](docs/AGENT_E
 
 ## Quality and release management
 
-Pull requests run Python unit tests across Python 3.11, 3.13 and 3.14, and validate both Docker Compose files without pulling images or starting containers. CI also checks the release pin, mount/port boundaries, secrets hygiene, config structure, generated credentials and **offline local Markdown links/heading anchors**. Host certificate verification is a separate operator check.
+Pull requests run the Python test suite on 3.11, 3.13 and 3.14, including **real loopback HTTPS contracts and temporary X.509 certificate/key fixtures**, and inspect the **effective, interpolated** Docker Compose model for unsafe exposure or AI network attachment. No Wazuh images are pulled or started in PR CI; local protocol tests do **not** verify a live Wazuh installation. See [Testing and release evidence](docs/TESTING.md) for the test tiers, commands, CI boundaries and staging acceptance criteria. Host certificate verification remains a separate operator check.
 
 Images are intentionally **pinned as a coordinated set to v4.14.9**. Changing the tag alone is not an upgrade plan: Wazuh releases may require matching configuration, certificates and index/data migrations. Follow [Upgrading](docs/UPGRADING.md) and the [official Docker upgrade guide](https://documentation.wazuh.com/current/deployment-options/docker/upgrading-wazuh-docker.html).
 
@@ -165,6 +165,7 @@ Images are intentionally **pinned as a coordinated set to v4.14.9**. Changing th
 | [Security](SECURITY.md) | Threat surface and vulnerability reporting |
 | [Enterprise readiness](docs/ENTERPRISE_READINESS.md) | Reliability gaps, security posture and production promotion gates |
 | [Staging acceptance](docs/PRODUCTION_ACCEPTANCE.md) | Live environment checklist and signed verification |
+| [Testing and validation](docs/TESTING.md) | Deterministic local tests, TLS protocol checks, effective Compose verification and staging gates |
 | [Supply chain](docs/SUPPLY_CHAIN.md) | Image provenance, dependency policy and release monitoring |
 | [Contributing](CONTRIBUTING.md) | Development workflow and quality standards |
 | [Support](SUPPORT.md) | Support boundaries and troubleshooting resources |

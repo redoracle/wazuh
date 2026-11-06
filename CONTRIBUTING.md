@@ -7,7 +7,7 @@ Contributions are welcome for release alignment, documentation, security hardeni
 1. Open a focused issue or proposal for any architecture, exposure, credential or data-path change.
 2. Create a feature branch from the repository default branch.
 3. Use a Python 3.11+ virtual environment; `python -m pip install -r requirements-dev.txt`.
-4. Run `python -m unittest discover -s tests -v` and `python -m compileall -q scripts tests`.
+4. Run `python -m unittest discover -s tests -v` and `python -m compileall -q scripts tests integrations`; real TLS contract tests require OpenSSL.
 5. For Compose changes, run `docker compose -f generate-indexer-certs.yml config --quiet` and `docker compose config --quiet` **after** a fresh local bootstrap; do not print secrets.
 6. Submit a PR with the official Wazuh version or document reference, compatibility explanation, security and data impact, test evidence and rollback instructions.
 
@@ -33,3 +33,7 @@ Any proposed AI adapter must preserve **no automatic Wazuh actions**, minimum-pr
 Run `make preflight` (after installing `requirements-dev.txt`), the Python unit suite, and the base and optional AI Compose validations. Do not claim enterprise availability without the [independent staging acceptance protocol](docs/PRODUCTION_ACCEPTANCE.md). Every change to topology, agent enrollment, networking, authentication, image versions, Indexer disk behavior or persistent volumes requires documented data-loss risks, vendor references, rollback and real staging test evidence.
 
 For dependency updates, record exact third-party provenance and image digests as described in [supply-chain controls](docs/SUPPLY_CHAIN.md). Code owner review routing does not enforce approval until GitHub branch rules are configured.
+
+## Test quality and evidence
+
+See [Testing and validation](docs/TESTING.md). Never replace real TLS, response-schema or failure-path tests with a mocked network client and then claim integration coverage. New security-sensitive operations require a deterministic offline negative test and an operator acceptance case. Tests must be runnable in temporary directories and must not assume that an initialized operator checkout lacks `.env`.
