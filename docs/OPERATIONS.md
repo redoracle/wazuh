@@ -12,6 +12,8 @@ The indexer volume `wazuh-indexer-data` contains search data; the manager has se
 
 For **consistent indexer backups**, use the Wazuh/OpenSearch-compatible snapshot method supported by the deployed indexer version; merely copying the live data directory can produce an unrecoverable snapshot. Back up manager configuration/rules, agent identity and keys, dashboards/customizations, and TLS/credential materials using a documented consistency window.
 
+The [dedicated backup/restore runbook](BACKUP_RESTORE.md) defines snapshot repository prerequisites, coverage, encryption, restore order and evidence. **No scheduled backup is installed by this repository.**
+
 Test a restore into a segregated environment **before** relying on the backup. Confirm agent enrollment, indexing, dashboard authentication and searches. Store backups encrypted, off-host, with restricted recovery access and retention controls.
 
 ## Restart and stop
@@ -39,3 +41,25 @@ The configuration is a single-node platform; it has no index replica or dashboar
 ## Optional AI operations
 
 Run the [AI HOWTO](AI_HOWTO.md) only after creating a dedicated Indexer read-only identity. AI reports are advisory and must be reviewed against primary Wazuh evidence. Stop the isolated Ollama service during resource pressure; stopping it must not disrupt ingestion, indexing or dashboards. The [AI validation runbook](AI_VALIDATION.md) covers readiness, benchmark methodology, incident response, rollback, and data retention.
+
+## Storage pressure and Docker logging
+
+Each service now rotates Docker **stdout/stderr** logs at 10 MiB per file and five files per container. This prevents unbounded Docker daemon log growth but is **not** a substitute for long-term security event retention, centralized logging or signed forensic logs. Recreate containers during an approved maintenance window for the new logging configuration to take effect; changing YAML alone does not update existing containers.
+
+The upstream-based indexer has disabled disk-allocation thresholds. Monitor free space and shard/JVM pressure, and stage-test an appropriate vendor-compatible disk safeguard and full-disk recovery plan before production use. Do not change dynamic cluster settings blindly.
+
+## Staged production sign-off
+
+Run `make preflight` for offline source policy checks and use [enterprise readiness](ENTERPRISE_READINESS.md) plus [production acceptance](PRODUCTION_ACCEPTANCE.md) for the operator-run evidence. A Wazuh installation can pass the repository's CI and still fail to ingest events or restore snapshots.
+
+For enrollment incidents or certificate expiry, see [agent enrollment security](AGENT_ENROLLMENT.md) and [certificate lifecycle](CERTIFICATE_OPERATIONS.md).
+
+## P0/P1 operational supporting tools
+
+- [Disk protection and full-disk recovery](DISK_OPERATIONS.md) for the newly enabled single-node watermarks.
+- [HA reference and failover staging](HA_MIGRATION.md) for cross-failure-domain architecture.
+- [Opt-in snapshot create/verify](BACKUP_RESTORE.md); a snapshot helper is not full manager recovery and cannot guarantee off-host durability without an approved repository.
+- [Authenticated agent enrollment](AGENT_ENROLLMENT.md) for new bootstrap and explicit existing-install migration.
+- [Supply chain review](SUPPLY_CHAIN.md) for scheduled scanning and outstanding digest/SBOM gates.
+
+`python3 scripts/runtime_probe.py` reports only Compose service status. No successful output is sufficient evidence for RPO/RTO, Indexer alert ingestion, or manager recovery.

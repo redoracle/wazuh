@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "wazuh_version": "4.14.9",
+  "upstream_commit": "56ece955b1107b7b62823afae5b7057e1dab9d98",
+  "indexers": [
+    {"name": "wazuh1.indexer", "host": "indexer-a.example.invalid", "failure_domain": "site-a", "data_volume": "index-a"},
+    {"name": "wazuh2.indexer", "host": "indexer-b.example.invalid", "failure_domain": "site-b", "data_volume": "index-b"},
+    {"name": "wazuh3.indexer", "host": "indexer-c.example.invalid", "failure_domain": "site-c", "data_volume": "index-c"}
+  ],
+  "managers": [
+    {"name": "wazuh.master", "host": "manager-a.example.invalid", "failure_domain": "site-a"},
+    {"name": "wazuh.worker", "host": "manager-b.example.invalid", "failure_domain": "site-b"}
+  ],
+  "dashboards": [
+    {"name": "dashboard-a", "host": "dashboard-a.example.invalid", "failure_domain": "site-a"},
+    {"name": "dashboard-b", "host": "dashboard-b.example.invalid", "failure_domain": "site-b"}
+  ],
+  "agent_ingress": {"name": "agents-lb.example.invalid", "backends": ["wazuh.master", "wazuh.worker"], "health_probe": "tcp:1514"},
+  "dashboard_ingress": {"name": "ui-lb.example.invalid", "backends": ["dashboard-a", "dashboard-b"], "health_probe": "https:5601"}
+}

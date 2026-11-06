@@ -18,3 +18,16 @@ Describe what changes, why it is needed, and the Wazuh release or vendor referen
 ## Documentation
 
 Link changed README, architecture, operations or upgrade guidance as applicable.
+
+## Enterprise change gate
+
+- [ ] `make preflight` passed; all reported warnings were understood.
+- [ ] Enterprise-level blockers are documented, not waived by static CI.
+- [ ] Image changes include approved digests/provenance and vulnerability scan evidence.
+- [ ] Any runtime-impacting change has staged onboarding/indexing, backup/restore and rollback results or is explicitly marked unverified.
+- [ ] README, security and runbooks reflect the behavior actually implemented.
+
+See [enterprise readiness](https://github.com/redoracle/wazuh/blob/master/docs/ENTERPRISE_READINESS.md) and [production acceptance](https://github.com/redoracle/wazuh/blob/master/docs/PRODUCTION_ACCEPTANCE.md).
+
+- [ ] `make docs-check` passed for documentation changes, including local anchor targets.
+- [ ] Certificate, enrollment or backup instructions include operator ownership, failure handling and matching upstream sources.

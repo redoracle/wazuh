@@ -28,3 +28,17 @@ Do **not** post credentials, exploit details, or private security logs in public
 ## Optional AI integrations
 
 AI inference is **disabled in the default stack**. The separate [AI threat model](docs/AI_SECURITY.md) documents the read-only Indexer principal, bounded search, local model allowlist, data minimization, prompt-injection defenses and human-approval requirements. AI output is not evidence and must never authorize automated Wazuh actions. Review [AI HOWTO](docs/AI_HOWTO.md) and [validation](docs/AI_VALIDATION.md) before connecting a live environment. Do not use Wazuh `admin` credentials, unverified remote MCP gateways or the Manager API for the sample worker.
+
+## Deployment authorization and enrollment
+
+The current manager template requires password-authenticated enrollment (`<use_password>yes</use_password>`), while existing running deployments require explicit staged conversion and container-level verification. **Do not broaden TCP 1515 exposure** until the private enrollment secret is mounted successfully, denied unauthenticated enrollment has been demonstrated, and host firewall/source restrictions are approved. Loopback defaults are not a full ingress policy.
+
+The upstream-based Indexer configuration disables OpenSearch disk-allocation thresholds. Full disks can impact ingestion and integrity; evaluate a Wazuh-version-compatible disk watermark policy, proactive disk alarms and tested recovery **in staging** before changing a live cluster. See the [enterprise readiness standard](docs/ENTERPRISE_READINESS.md) and [staging acceptance](docs/PRODUCTION_ACCEPTANCE.md).
+
+CI now includes a read-only static policy check; it does **not** start containers, scan image CVEs, enforce branch protection or verify any real deployment. GitHub repository administrators must separately enable branch protection, code owner reviews, secret scanning and supply-chain policies.
+
+## Enrollment, recovery, and image integrity controls
+
+New installations now require an agent enrollment password; Wazuh 4.x agent operators must receive the secret through an approved channel. Existing deployments are **not** silently converted: use the idempotent `scripts/enrollment_security.py` conversion in staging, verify read-only bind permissions in the container, and close 1515 ingress if negative enrollment tests fail. See [agent enrollment](docs/AGENT_ENROLLMENT.md).
+
+The Indexer config now includes explicit single-data-node disk watermarks, whose actual flood-stage response must be rehearsed. The optional snapshot helper does not delete or restore data, and is not a replacement for encrypted off-host full-system recovery. A scheduled SHA-pinned vulnerability scan discovers container issues but does not certify image origin or enforce immutable digests. These are independent operator-owned controls, not a production approval.

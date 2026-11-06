@@ -6,6 +6,14 @@ services:
     profiles: [ai]
     read_only: true
     restart: 'no'
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    pids_limit: 64
+    mem_limit: 512m
+    cpus: 1.0
     cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true
@@ -36,6 +44,11 @@ services:
     image: ollama/ollama:0.40.15
     profiles: [ai]
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     networks:
       - ai-model-net
     environment:

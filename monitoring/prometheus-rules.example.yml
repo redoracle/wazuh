@@ -1,0 +1,38 @@
+# Reference rules only. Requires actual exporter/Prometheus instrumentation and routing.
+# Do not load before matching documented job labels, secure endpoints and failure domains.
+groups:
+  - name: wazuh-core-availability
+    rules:
+      - alert: WazuhCoreTargetMissing
+        expr: up{job=~"wazuh-manager|wazuh-indexer|wazuh-dashboard"} == 0
+        for: 2m
+        labels: {severity: critical, owner: soc-operations}
+        annotations:
+          summary: "Wazuh core target is not responding to the configured health probe"
+      - alert: WazuhCoreMetricsAbsent
+        expr: absent(up{job="wazuh-indexer"})
+        for: 5m
+        labels: {severity: critical, owner: soc-operations}
+        annotations:
+          summary: "Wazuh Indexer monitoring target is absent; data collection may be blind"
+  - name: wazuh-host-capacity
+    rules:
+      - alert: WazuhDockerDataDiskHeadroomLow
+        # Node exporter must be installed on the host with the correct mountpoint label.
+        expr: (node_filesystem_avail_bytes{job="wazuh-host",mountpoint="/var/lib/docker"} / node_filesystem_size_bytes{job="wazuh-host",mountpoint="/var/lib/docker"}) < 0.25
+        for: 10m
+        labels: {severity: warning, owner: soc-operations}
+        annotations:
+          summary: "Wazuh Docker data host has less than 25% available filesystem capacity"
+      - alert: WazuhDockerDataDiskCritical
+        expr: (node_filesystem_avail_bytes{job="wazuh-host",mountpoint="/var/lib/docker"} / node_filesystem_size_bytes{job="wazuh-host",mountpoint="/var/lib/docker"}) < 0.15
+        for: 2m
+        labels: {severity: critical, owner: soc-operations}
+        annotations:
+          summary: "Wazuh Docker host is nearing an unsafe disk allocation watermark"
+      - alert: WazuhDockerDataFilesystemReadOnly
+        expr: node_filesystem_readonly{job="wazuh-host",mountpoint="/var/lib/docker"} == 1
+        for: 1m
+        labels: {severity: critical, owner: soc-operations}
+        annotations:
+          summary: "Wazuh data host filesystem has become read-only"

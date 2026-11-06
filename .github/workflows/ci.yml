@@ -34,7 +34,12 @@ jobs:
       - name: Check Python syntax and repository contracts
         run: |
           python -m compileall -q scripts tests integrations
+          openssl version  # Real loopback TLS and X.509 fixtures are required, not optional.
           python -m unittest discover -s tests -v
+          python scripts/enterprise_preflight.py --profile controlled
+          python scripts/check_docs.py
+          python scripts/validate_ha_inventory.py
+          python scripts/snapshot_guard.py --repository wazuh-offsite --mode plan
 
   compose-config:
     name: Docker Compose configuration
@@ -58,3 +63,11 @@ jobs:
           docker compose -f generate-indexer-certs.yml config --quiet
           docker compose -f docker-compose.yml config --quiet
           docker compose -f docker-compose.yml -f docker-compose.ai.yml config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.backup.yml config --quiet
+      - name: Verify interpolated service exposure and AI network isolation
+        run: |
+          set -euo pipefail
+          # Resolved JSON contains credentials: pipe directly into a validator,
+          # never print it or upload it as a CI artifact.
+          docker compose -f docker-compose.yml config --format json | python scripts/check_effective_compose.py
+          docker compose --profile ai -f docker-compose.yml -f docker-compose.ai.yml config --format json | python scripts/check_effective_compose.py --ai

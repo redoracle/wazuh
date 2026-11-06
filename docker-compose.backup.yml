@@ -1,0 +1,36 @@
+# Optional, one-shot snapshot operator. Not deployed with ordinary `docker compose up`.
+# An administrator must register a VERIFIED OFF-HOST repository and dedicated role first.
+services:
+  snapshot-guard:
+    image: python:3.13-slim
+    profiles: [backup]
+    restart: 'no'
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid,nodev
+    networks: [default]
+    volumes:
+      - ./scripts/snapshot_guard.py:/app/snapshot_guard.py:ro
+      - ./config/wazuh_indexer_ssl_certs/root-ca.pem:/certs/root-ca.pem:ro
+      - ./local-secrets/snapshot-indexer-password:/run/secrets/snapshot-indexer-password:ro
+    entrypoint: [python3, /app/snapshot_guard.py]
+    command:
+      - --repository
+      - wazuh-offsite
+      - --ca-file
+      - /certs/root-ca.pem
+      - --username
+      - ${SNAPSHOT_INDEXER_USERNAME:-wazuh-backup}
+      - --password-file
+      - /run/secrets/snapshot-indexer-password

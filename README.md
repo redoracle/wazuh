@@ -68,7 +68,7 @@ docker compose ps
 
 Open **https://localhost** and authenticate with username **`admin`** and the unique `INDEXER_PASSWORD` stored in your private `.env` file. Self-signed certificates require an explicit browser trust decision; use certificates from a trusted CA for public-facing deployments. Initial startup can take several minutes.
 
-The initializer creates `.env` with permissions `0600`, a protected `config/generated/` directory, indexer user hashes, an API configuration, and a generated manager configuration. **Never commit, paste into logs, or share these files.** Re-running the initializer does not rotate existing passwords. See [Credential management](docs/DEPLOYMENT.md#credentials-and-certificates).
+The initializer creates `.env` with permissions `0600`, a protected `config/generated/` directory, a unique `authd.pass` enrollment secret, indexer user hashes, an API configuration, and a generated manager configuration. **Existing deployments require an explicit enrollment conversion** before recreating the manager; a checkout never rotates running service credentials. See [agent enrollment](docs/AGENT_ENROLLMENT.md). **Never commit, paste into logs, or share these files.** Re-running the initializer does not rotate existing passwords. See [Credential management](docs/DEPLOYMENT.md#credentials-and-certificates).
 
 ## Configuration
 
@@ -92,14 +92,23 @@ make status   # container status
 make logs     # follow Wazuh service logs
 make test     # offline repository contract tests
 make config   # validate the effective Compose model
+make docs-check  # offline Markdown links and headings
+# After certificate generation, on the deployment host:
+make cert-check  # verify TLS trust, key pairs, expiry and key modes (OpenSSL required)
 make down     # stop without deleting persistent volumes
 ```
 
-The `Makefile` provides `bootstrap`, `certs`, `up`, and validation tasks. **Never run `docker compose down -v` without a verified recovery plan**; removing volumes deletes the stored Wazuh state. For backups, incident recovery and configuration management, see [Operations](docs/OPERATIONS.md).
+The `Makefile` provides `bootstrap`, `certs`, `up`, and validation tasks. **Never run `docker compose down -v` without a verified recovery plan**; removing volumes deletes the stored Wazuh state. For backups, incident recovery and configuration management, see [Operations](docs/OPERATIONS.md) and the [recovery runbook](docs/BACKUP_RESTORE.md).
+
+## P0/P1 security controls and acceptance
+
+New installations use password-authenticated Wazuh agent enrollment and disk watermarks, but these security-sensitive changes must be tested in staging before rollout to existing service volumes. Follow [agent enrollment](docs/AGENT_ENROLLMENT.md), [disk protections and recovery](docs/DISK_OPERATIONS.md), and [backup and restore](docs/BACKUP_RESTORE.md). The optional [snapshot operator](docs/BACKUP_RESTORE.md) only creates/verifies alert snapshots against an approved off-host repository; it is **not** complete disaster recovery. Full recovery still needs manager, certificates and credentials, an encrypted off-host backup and a rehearsed restore.
+
+The [multi-host HA migration reference](docs/HA_MIGRATION.md) validates failure-domain inventory design against the official pinned multi-node version; it does **not** deploy high availability automatically. [Supply-chain safeguards](docs/SUPPLY_CHAIN.md) include scheduled vulnerability scans, but deployment still needs immutable image approvals and GitHub [branch rules](docs/REPOSITORY_ADMIN.md). The [monitoring runbook](docs/MONITORING.md) and [production acceptance](docs/PRODUCTION_ACCEPTANCE.md) record remain mandatory.
 
 ## Optional AI-assisted security operations
 
-This repository provides an **opt-in, read-only local AI triage workflow** for SOC analysts. It queries a strictly bounded subset of Wazuh Indexer alerts with a separately permissioned identity, projects only minimal non-raw metadata, and can optionally ask a private **Ollama** model to produce investigation hypotheses. All model output is marked **untrusted** and requires analyst verification. The provided code does not give the model tools to execute commands, call the Wazuh Manager API, change security policies, quarantine agents or invoke active response.
+The platform supports an **opt-in, read-only local AI triage workflow** for SOC analysts. It queries a strictly bounded subset of Wazuh Indexer alerts with a separately permissioned identity, projects only minimal non-raw metadata, and can optionally ask a private **Ollama** model to produce investigation hypotheses. All model output is marked **untrusted** and requires analyst verification. No model can execute commands, call the Wazuh Manager API, change security policies, quarantine agents or invoke active response.
 
 ```mermaid
 flowchart LR
@@ -111,11 +120,30 @@ flowchart LR
 
 **Start offline** with the [AI integration HOWTO](docs/AI_HOWTO.md), then configure a dedicated restricted Indexer principal before enabling the optional Docker overlay (`docker-compose.ai.yml`). No AI service is enabled by a normal `docker compose up -d`. Local model inference is explicitly opt-in, and the Indexer and Ollama have no new host-published ports.
 
-Self-hosted guides: [implemented capabilities and evidence](docs/AI_INTEGRATIONS.md) · [local setup/how-to](docs/AI_HOWTO.md) · [AI threat model](docs/AI_SECURITY.md) · [validation and runbook](docs/AI_VALIDATION.md). **This is an independently maintained opt-in integration, not a built-in Wazuh AI feature.** Live Indexer connectivity and Ollama model quality require separate deployment testing.
+Research-backed guidance: [evaluation and options](docs/AI_INTEGRATIONS.md) · [setup/how-to](docs/AI_HOWTO.md) · [AI threat model](docs/AI_SECURITY.md) · [validation and runbook](docs/AI_VALIDATION.md).
+
+
+## Enterprise self-hosted readiness
+
+**This is a controlled single-host reference, not a certified enterprise high-availability deployment.** The official multi-node Wazuh architecture must be evaluated for workloads requiring redundant Indexers and Managers. Source-level CI does not prove agent ingestion, recovery, or security posture on a real host.
+
+The repository includes read-only deployment policy checks and an explicit production decision record:
+
+```bash
+python -m pip install -r requirements-dev.txt
+make preflight
+python scripts/enterprise_preflight.py --profile controlled --host
+# Expected to fail until deployment-specific HA, backup and security gates are resolved:
+python scripts/enterprise_preflight.py --profile enterprise --json
+```
+
+Before production approval, follow [enterprise readiness](docs/ENTERPRISE_READINESS.md), the [staging acceptance protocol](docs/PRODUCTION_ACCEPTANCE.md), and the [supply-chain policy](docs/SUPPLY_CHAIN.md). A successful controlled preflight is **not** an enterprise readiness certificate.
+
+For actionable host procedures, use the [agent enrollment security](docs/AGENT_ENROLLMENT.md), [backup and recovery](docs/BACKUP_RESTORE.md) and [TLS certificate lifecycle](docs/CERTIFICATE_OPERATIONS.md) runbooks. These are operator actions; none of them is silently executed by the repository's CI.
 
 ## Quality and release management
 
-Pull requests run Python unit tests across Python 3.11, 3.13 and 3.14, and validate both Docker Compose files without pulling images or starting containers. CI also checks the release pin, mount/port boundaries, secrets hygiene, config structure and generated credentials.
+Pull requests run the Python test suite on 3.11, 3.13 and 3.14, including **real loopback HTTPS contracts and temporary X.509 certificate/key fixtures**, and inspect the **effective, interpolated** Docker Compose model for unsafe exposure or AI network attachment. No Wazuh images are pulled or started in PR CI; local protocol tests do **not** verify a live Wazuh installation. See [Testing and release evidence](docs/TESTING.md) for the test tiers, commands, CI boundaries and staging acceptance criteria. Host certificate verification remains a separate operator check.
 
 Images are intentionally **pinned as a coordinated set to v4.14.9**. Changing the tag alone is not an upgrade plan: Wazuh releases may require matching configuration, certificates and index/data migrations. Follow [Upgrading](docs/UPGRADING.md) and the [official Docker upgrade guide](https://documentation.wazuh.com/current/deployment-options/docker/upgrading-wazuh-docker.html).
 
@@ -124,14 +152,21 @@ Images are intentionally **pinned as a coordinated set to v4.14.9**. Changing th
 | Guide | Contents |
 | --- | --- |
 | [Deployment](docs/DEPLOYMENT.md) | Prerequisites, credentials, certificates and first startup |
-| [Self-hosted AI integration](docs/AI_INTEGRATIONS.md) | Implemented local features, evidence, security boundaries and unsupported capabilities |
+| [AI integrations](docs/AI_INTEGRATIONS.md) | Comparison of official, MCP, local Ollama and orchestration approaches |
 | [AI HOWTO](docs/AI_HOWTO.md) | Safe offline demo, Indexer reader role and optional local-model operations |
 | [AI security](docs/AI_SECURITY.md) | Trust boundaries and threat model |
 | [AI validation](docs/AI_VALIDATION.md) | CI coverage, operator acceptance and rollback |
 | [Architecture](docs/ARCHITECTURE.md) | Components, TLS, networks, ports and persistence |
 | [Operations](docs/OPERATIONS.md) | Health checks, backups, restore and troubleshooting |
+| [Agent enrollment security](docs/AGENT_ENROLLMENT.md) | Authenticated enrollment, source allowlists, change control and negative tests |
+| [Backup and restoration](docs/BACKUP_RESTORE.md) | Snapshot repositories, protected volumes and isolated recovery rehearsals |
+| [Certificate lifecycle](docs/CERTIFICATE_OPERATIONS.md) | CA validation, SANs, private-key permissions and staged rotation |
 | [Upgrading](docs/UPGRADING.md) | Version alignment, maintenance and migration procedure |
 | [Security](SECURITY.md) | Threat surface and vulnerability reporting |
+| [Enterprise readiness](docs/ENTERPRISE_READINESS.md) | Reliability gaps, security posture and production promotion gates |
+| [Staging acceptance](docs/PRODUCTION_ACCEPTANCE.md) | Live environment checklist and signed verification |
+| [Testing and validation](docs/TESTING.md) | Deterministic local tests, TLS protocol checks, effective Compose verification and staging gates |
+| [Supply chain](docs/SUPPLY_CHAIN.md) | Image provenance, dependency policy and release monitoring |
 | [Contributing](CONTRIBUTING.md) | Development workflow and quality standards |
 | [Support](SUPPORT.md) | Support boundaries and troubleshooting resources |
 | [License](LICENSE) / [Notice](NOTICE.md) | Licensing and upstream attribution |
