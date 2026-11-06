@@ -28,3 +28,11 @@ Do **not** post credentials, exploit details, or private security logs in public
 ## Optional AI integrations
 
 AI inference is **disabled in the default stack**. The separate [AI threat model](docs/AI_SECURITY.md) documents the read-only Indexer principal, bounded search, local model allowlist, data minimization, prompt-injection defenses and human-approval requirements. AI output is not evidence and must never authorize automated Wazuh actions. Review [AI HOWTO](docs/AI_HOWTO.md) and [validation](docs/AI_VALIDATION.md) before connecting a live environment. Do not use Wazuh `admin` credentials, unverified remote MCP gateways or the Manager API for the sample worker.
+
+## Deployment authorization and enrollment
+
+The upstream-based manager configuration uses passwordless agent enrollment (`<use_password>no</use_password>`). **Do not broaden TCP 1515 exposure** until approved firewall/source restrictions and a supported enrollment-authentication strategy are configured and tested. The Docker host's `127.0.0.1` defaults are not substitutes for a production ingress design.
+
+The upstream-based Indexer configuration disables OpenSearch disk-allocation thresholds. Full disks can impact ingestion and integrity; evaluate a Wazuh-version-compatible disk watermark policy, proactive disk alarms and tested recovery **in staging** before changing a live cluster. See the [enterprise readiness standard](docs/ENTERPRISE_READINESS.md) and [staging acceptance](docs/PRODUCTION_ACCEPTANCE.md).
+
+CI now includes a read-only static policy check; it does **not** start containers, scan image CVEs, enforce branch protection or verify any real deployment. GitHub repository administrators must separately enable branch protection, code owner reviews, secret scanning and supply-chain policies.

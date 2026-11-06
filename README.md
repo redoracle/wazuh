@@ -113,6 +113,22 @@ flowchart LR
 
 Self-hosted guides: [implemented capabilities and evidence](docs/AI_INTEGRATIONS.md) · [local setup/how-to](docs/AI_HOWTO.md) · [AI threat model](docs/AI_SECURITY.md) · [validation and runbook](docs/AI_VALIDATION.md). **This is an independently maintained opt-in integration, not a built-in Wazuh AI feature.** Live Indexer connectivity and Ollama model quality require separate deployment testing.
 
+## Enterprise self-hosted readiness
+
+**This is a controlled single-host reference, not a certified enterprise high-availability deployment.** The official multi-node Wazuh architecture must be evaluated for workloads requiring redundant Indexers and Managers. Source-level CI does not prove agent ingestion, recovery, or security posture on a real host.
+
+The repository includes read-only deployment policy checks and an explicit production decision record:
+
+```bash
+python -m pip install -r requirements-dev.txt
+make preflight
+python scripts/enterprise_preflight.py --profile controlled --host
+# Expected to fail until deployment-specific HA, backup and security gates are resolved:
+python scripts/enterprise_preflight.py --profile enterprise --json
+```
+
+Before production approval, follow [enterprise readiness](docs/ENTERPRISE_READINESS.md), the [staging acceptance protocol](docs/PRODUCTION_ACCEPTANCE.md), and the [supply-chain policy](docs/SUPPLY_CHAIN.md). A successful controlled preflight is **not** an enterprise readiness certificate.
+
 ## Quality and release management
 
 Pull requests run Python unit tests across Python 3.11, 3.13 and 3.14, and validate both Docker Compose files without pulling images or starting containers. CI also checks the release pin, mount/port boundaries, secrets hygiene, config structure and generated credentials.
@@ -132,6 +148,9 @@ Images are intentionally **pinned as a coordinated set to v4.14.9**. Changing th
 | [Operations](docs/OPERATIONS.md) | Health checks, backups, restore and troubleshooting |
 | [Upgrading](docs/UPGRADING.md) | Version alignment, maintenance and migration procedure |
 | [Security](SECURITY.md) | Threat surface and vulnerability reporting |
+| [Enterprise readiness](docs/ENTERPRISE_READINESS.md) | Reliability gaps and production promotion gates |
+| [Staging acceptance](docs/PRODUCTION_ACCEPTANCE.md) | Live environment tests and signed verification |
+| [Supply chain](docs/SUPPLY_CHAIN.md) | Image provenance and release monitoring |
 | [Contributing](CONTRIBUTING.md) | Development workflow and quality standards |
 | [Support](SUPPORT.md) | Support boundaries and troubleshooting resources |
 | [License](LICENSE) / [Notice](NOTICE.md) | Licensing and upstream attribution |

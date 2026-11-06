@@ -40,3 +40,9 @@ References: [official Docker single-node files](https://github.com/wazuh/wazuh-d
 ## Optional AI analysis boundary
 
 The [opt-in AI overlay](../docker-compose.ai.yml) runs a single bounded Indexer search worker on the Wazuh application network and optionally attaches it to a separate **AI model network**. The Ollama service itself has no membership in the Wazuh application network and no published host port. The worker accesses the Indexer with a *separate*, server-enforced read-only role and forwards only validated metadata to the model. The default deployment is unchanged unless an operator explicitly includes the overlay. Read the [AI threat model](AI_SECURITY.md) before deployment.
+
+## Operational reliability boundary
+
+This single-node topology has a single Manager, Indexer, Dashboard and Docker host. A restart policy does **not** provide high availability, multi-host quorum, backup, continuity testing or zero data loss. The [architecture readiness standard](ENTERPRISE_READINESS.md) documents the upstream multi-node alternative and required trust boundaries. See [ADR 0001](decisions/0001-controlled-single-node.md).
+
+Docker Compose's bridge networking does not guarantee an enterprise egress deny policy. The optional AI model is logically separated from the Wazuh network but network-level egress must be enforced independently.

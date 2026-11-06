@@ -1,0 +1,8 @@
+# Maintainer review routing; requires GitHub branch protection to enforce.
+* @redoracle
+/.github/ @redoracle
+/docker-compose*.yml @redoracle
+/generate-indexer-certs.yml @redoracle
+/scripts/ @redoracle
+/integrations/ @redoracle
+/config/ @redoracle

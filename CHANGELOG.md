@@ -18,3 +18,9 @@ For upstream component changes, see [Wazuh Docker v4.14.9](https://github.com/wa
 - Add opt-in, bounded read-only Wazuh Indexer alert triage CLI with metadata-only local Ollama inference, fail-closed security controls, per-run pseudonyms and minimal audit logs.
 - Add independent Compose overlay with private AI model network and no additional host-published ports; base Wazuh 4.14.9 stack remains unchanged.
 - Add setup, threat-model, operations, benchmark and rollback guides, plus offline security regression tests.
+## Unreleased — enterprise readiness controls
+
+- Add explicit enterprise-not-ready classification, static and host readiness checks, and adversarial test coverage.
+- Rotate Docker stdout/stderr logs, cap opt-in AI worker resources, and add architecture decision and runtime acceptance runbooks.
+- Add weekly non-mutating upstream stable-release monitoring, CODEOWNERS and release/security review checklists.
+- Preserve the Wazuh 4.14.9 configuration and enrollment semantics pending vendor-compatible staged validation.

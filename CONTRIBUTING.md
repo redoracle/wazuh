@@ -27,3 +27,9 @@ See [the security policy](SECURITY.md) for private vulnerability reports.
 ## AI integration changes
 
 Any proposed AI adapter must preserve **no automatic Wazuh actions**, minimum-privilege identity, opt-in local processing, restricted egress, deterministic tests that inject malicious alert/model content, and human review. Do not add public MCP endpoints, remote-provider calls or API credentials to defaults. Update [AI evaluation](docs/AI_INTEGRATIONS.md), [threat model](docs/AI_SECURITY.md) and [acceptance tests](docs/AI_VALIDATION.md) with each change. Use `python -m unittest discover -s tests -v` and render the full Compose overlay before opening a PR.
+
+## Change-management standard for self-hosted reliability
+
+Run `make preflight` (after installing `requirements-dev.txt`), the Python unit suite, and the base and optional AI Compose validations. Do not claim enterprise availability without the [independent staging acceptance protocol](docs/PRODUCTION_ACCEPTANCE.md). Every change to topology, agent enrollment, networking, authentication, image versions, Indexer disk behavior or persistent volumes requires documented data-loss risks, vendor references, rollback and real staging test evidence.
+
+For dependency updates, record exact third-party provenance and image digests as described in [supply-chain controls](docs/SUPPLY_CHAIN.md). Code owner review routing does not enforce approval until GitHub branch rules are configured.

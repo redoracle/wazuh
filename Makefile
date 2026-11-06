@@ -1,4 +1,4 @@
-.PHONY: help bootstrap bootstrap-check certs config check test ai-test ai-config up status logs down
+.PHONY: help bootstrap bootstrap-check certs config check test ai-test ai-config preflight up status logs down
 PYTHON ?= python3
 
 help:
@@ -40,3 +40,7 @@ ai-test:
 # Validates opt-in Compose overlay; run after one-time bootstrap.
 ai-config:
 	docker compose -f docker-compose.yml -f docker-compose.ai.yml config --quiet
+
+# Static, read-only checks. Requires requirements-dev.txt (PyYAML).
+preflight:
+	$(PYTHON) scripts/enterprise_preflight.py --profile controlled

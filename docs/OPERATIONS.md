@@ -39,3 +39,13 @@ The configuration is a single-node platform; it has no index replica or dashboar
 ## Optional AI operations
 
 Run the [AI HOWTO](AI_HOWTO.md) only after creating a dedicated Indexer read-only identity. AI reports are advisory and must be reviewed against primary Wazuh evidence. Stop the isolated Ollama service during resource pressure; stopping it must not disrupt ingestion, indexing or dashboards. The [AI validation runbook](AI_VALIDATION.md) covers readiness, benchmark methodology, incident response, rollback, and data retention.
+
+## Storage pressure and Docker logging
+
+Each service now rotates Docker **stdout/stderr** logs at 10 MiB per file and five files per container. This prevents unbounded Docker daemon log growth but is **not** a substitute for long-term security event retention, centralized logging or signed forensic logs. Recreate containers during an approved maintenance window for the new logging configuration to take effect; changing YAML alone does not update existing containers.
+
+The upstream-based indexer has disabled disk-allocation thresholds. Monitor free space and shard/JVM pressure, and stage-test an appropriate vendor-compatible disk safeguard and full-disk recovery plan before production use. Do not change dynamic cluster settings blindly.
+
+## Staged production sign-off
+
+Run `make preflight` for offline source policy checks and use [enterprise readiness](ENTERPRISE_READINESS.md) plus [production acceptance](PRODUCTION_ACCEPTANCE.md) for the operator-run evidence. A Wazuh installation can pass the repository's CI and still fail to ingest events or restore snapshots.
