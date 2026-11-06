@@ -23,3 +23,7 @@ A configuration-only test is not proof that services start correctly. Image and 
 - Preserve Wazuh upstream copyright/attribution and the repository GPL-2.0 licensing obligations.
 
 See [the security policy](SECURITY.md) for private vulnerability reports.
+
+## AI integration changes
+
+Any proposed AI adapter must preserve **no automatic Wazuh actions**, minimum-privilege identity, opt-in local processing, restricted egress, deterministic tests that inject malicious alert/model content, and human review. Do not add public MCP endpoints, remote-provider calls or API credentials to defaults. Update [AI evaluation](docs/AI_INTEGRATIONS.md), [threat model](docs/AI_SECURITY.md) and [acceptance tests](docs/AI_VALIDATION.md) with each change. Use `python -m unittest discover -s tests -v` and render the full Compose overlay before opening a PR.

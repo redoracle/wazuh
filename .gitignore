@@ -13,3 +13,8 @@ __pycache__/
 .DS_Store
 .idea/
 .vscode/
+
+# Opt-in AI integration: analyst-local credentials and outputs.
+local-secrets/
+local-state/
+.ai.env

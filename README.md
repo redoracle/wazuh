@@ -97,6 +97,22 @@ make down     # stop without deleting persistent volumes
 
 The `Makefile` provides `bootstrap`, `certs`, `up`, and validation tasks. **Never run `docker compose down -v` without a verified recovery plan**; removing volumes deletes the stored Wazuh state. For backups, incident recovery and configuration management, see [Operations](docs/OPERATIONS.md).
 
+## Optional AI-assisted security operations
+
+The platform supports an **opt-in, read-only local AI triage workflow** for SOC analysts. It queries a strictly bounded subset of Wazuh Indexer alerts with a separately permissioned identity, projects only minimal non-raw metadata, and can optionally ask a private **Ollama** model to produce investigation hypotheses. All model output is marked **untrusted** and requires analyst verification. No model can execute commands, call the Wazuh Manager API, change security policies, quarantine agents or invoke active response.
+
+```mermaid
+flowchart LR
+    I[(Wazuh Indexer)] -->|TLS + read-only alert search| T[Optional AI triage]
+    T -->|Allowlisted metadata only| O[Local Ollama]
+    O -->|Untrusted advisory| T
+    T -->|Human approval required| A[SOC analyst]
+```
+
+**Start offline** with the [AI integration HOWTO](docs/AI_HOWTO.md), then configure a dedicated restricted Indexer principal before enabling the optional Docker overlay (`docker-compose.ai.yml`). No AI service is enabled by a normal `docker compose up -d`. Local model inference is explicitly opt-in, and the Indexer and Ollama have no new host-published ports.
+
+Research-backed guidance: [evaluation and options](docs/AI_INTEGRATIONS.md) · [setup/how-to](docs/AI_HOWTO.md) · [AI threat model](docs/AI_SECURITY.md) · [validation and runbook](docs/AI_VALIDATION.md). Wazuh Cloud AI Analyst and community MCP connectors are documented as **separate products/third-party integrations**, not features automatically provided by this self-hosted repository.
+
 ## Quality and release management
 
 Pull requests run Python unit tests across Python 3.11, 3.13 and 3.14, and validate both Docker Compose files without pulling images or starting containers. CI also checks the release pin, mount/port boundaries, secrets hygiene, config structure and generated credentials.
@@ -108,6 +124,10 @@ Images are intentionally **pinned as a coordinated set to v4.14.9**. Changing th
 | Guide | Contents |
 | --- | --- |
 | [Deployment](docs/DEPLOYMENT.md) | Prerequisites, credentials, certificates and first startup |
+| [AI integrations](docs/AI_INTEGRATIONS.md) | Comparison of official, MCP, local Ollama and orchestration approaches |
+| [AI HOWTO](docs/AI_HOWTO.md) | Safe offline demo, Indexer reader role and optional local-model operations |
+| [AI security](docs/AI_SECURITY.md) | Trust boundaries and threat model |
+| [AI validation](docs/AI_VALIDATION.md) | CI coverage, operator acceptance and rollback |
 | [Architecture](docs/ARCHITECTURE.md) | Components, TLS, networks, ports and persistence |
 | [Operations](docs/OPERATIONS.md) | Health checks, backups, restore and troubleshooting |
 | [Upgrading](docs/UPGRADING.md) | Version alignment, maintenance and migration procedure |

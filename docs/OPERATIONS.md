@@ -35,3 +35,7 @@ docker compose down  # preserves named volumes
 ## Monitoring and scale
 
 The configuration is a single-node platform; it has no index replica or dashboard failover. For increasing ingestion volume, explicit availability targets, compliance evidence or fault tolerance, plan an upstream-supported multi-node topology and retention strategy. See [Upgrading](UPGRADING.md).
+
+## Optional AI operations
+
+Run the [AI HOWTO](AI_HOWTO.md) only after creating a dedicated Indexer read-only identity. AI reports are advisory and must be reviewed against primary Wazuh evidence. Stop the isolated Ollama service during resource pressure; stopping it must not disrupt ingestion, indexing or dashboards. The [AI validation runbook](AI_VALIDATION.md) covers readiness, benchmark methodology, incident response, rollback, and data retention.

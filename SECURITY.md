@@ -24,3 +24,7 @@ No HA, snapshot schedule, automated recovery, external SIEM policy or network fi
 ## Reporting a vulnerability
 
 Do **not** post credentials, exploit details, or private security logs in public issues. Use GitHub private vulnerability reporting when enabled, or contact the repository maintainer through a trusted private channel. For vulnerabilities in Wazuh binaries or images, use the vendor's published security reporting process. Include affected component versions and a sanitized reproduction.
+
+## Optional AI integrations
+
+AI inference is **disabled in the default stack**. The separate [AI threat model](docs/AI_SECURITY.md) documents the read-only Indexer principal, bounded search, local model allowlist, data minimization, prompt-injection defenses and human-approval requirements. AI output is not evidence and must never authorize automated Wazuh actions. Review [AI HOWTO](docs/AI_HOWTO.md) and [validation](docs/AI_VALIDATION.md) before connecting a live environment. Do not use Wazuh `admin` credentials, unverified remote MCP gateways or the Manager API for the sample worker.
