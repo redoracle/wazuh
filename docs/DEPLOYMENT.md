@@ -54,3 +54,7 @@ Reach `https://localhost` (or the chosen interface). Login as `admin` with the p
 - **Remote agents cannot connect:** Confirm the bind address, host firewall, network routes and manager enrollment policy.
 
 See [Operations](OPERATIONS.md) and [Wazuh's official Docker instructions](https://documentation.wazuh.com/current/deployment-options/docker/wazuh-container.html).
+
+## Existing deployment adoption of authenticated enrollment and disk protection
+
+This release adds `config/generated/authd.pass` as a required manager bind mount for **new deployments**. A previously bootstrapped instance will fail a new bootstrap check until the protected file exists. **Do not** delete persistent volumes or rerun bootstrap to repair it. Stage the non-destructive migration `python3 scripts/enrollment_security.py` and, only with a verified backup/change approval, `python3 scripts/enrollment_security.py --apply`. Verify container UID/GID readability, actual effective `use_password=yes`, positive and negative enrollment and no exposed manager API. The Indexer disk-watermark configuration also changes after a deliberate container recreation; follow [disk protections](DISK_OPERATIONS.md) before any production rollout.

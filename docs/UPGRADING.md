@@ -29,3 +29,7 @@ An older indexer may not read data files migrated by a newer release. If tests f
 - CI actions are pinned by immutable Git commit SHA and monitored by Dependabot.
 - Wazuh container versions and the generator are managed **as a single release bundle**, not as individually auto-upgradable libraries.
 - Runtime vulnerability management includes host/container patching, exposure reduction, monitoring, image provenance verification and the vendor's current security advisories.
+
+## Security controls introduced after initial v4.14.9 bootstrap
+
+A source-only git update does not rotate credentials or change running containers. The Wazuh manager now expects a private `config/generated/authd.pass` and `use_password=yes` for enrollment. Existing deployments must follow [agent enrollment migration](AGENT_ENROLLMENT.md) with an independently verified data recovery point; do not clear manager volumes or silently overwrite generated secrets. The Indexer now enables disk watermarks including single-data-node enforcement; rehearse flood-stage/read-only recovery on staging and verify effective persisted cluster settings. For a cross-host HA migration, use the [official version-pinned reference and inventory](HA_MIGRATION.md) rather than merging named Docker volumes in place.

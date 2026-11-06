@@ -46,3 +46,9 @@ The [opt-in AI overlay](../docker-compose.ai.yml) runs a single bounded Indexer 
 This single-node topology has a single Manager, Indexer, Dashboard and Docker host. A restart policy does **not** provide high availability, multi-host quorum, backup, continuity testing or zero data loss. The [architecture readiness standard](ENTERPRISE_READINESS.md) documents the upstream multi-node alternative and required trust boundaries. See [ADR 0001](decisions/0001-controlled-single-node.md).
 
 Docker Compose's bridge networking does not guarantee an enterprise egress deny policy. The optional AI model is logically separated from the Wazuh network but network-level egress must be enforced independently.
+
+## Secure enrollment, backup and HA transition
+
+The controlled reference manager mounts a generated private enrollment password read-only into `/var/ossec/etc/authd.pass`, while the manager configuration requires Wazuh 4.x password authentication. This is a new-installation security baseline; any existing manager must undergo an explicit upgrade process. The Indexer enables disk thresholds for a single data node, but this does not provide multi-node durability. See [enrollment](AGENT_ENROLLMENT.md), [disk protection](DISK_OPERATIONS.md), [off-host recovery](BACKUP_RESTORE.md) and the separate [HA transition](HA_MIGRATION.md).
+
+The optional snapshot worker attaches only to the existing private Compose network when launched manually with `docker-compose.backup.yml`; it has no host-published port, is read-only and cannot perform restoration or mutate Wazuh Manager. An Indexer snapshot must be copied by the registered repository to independently durable, encrypted storage and verified in staging. CI and snapshot API success are not restore acceptance.

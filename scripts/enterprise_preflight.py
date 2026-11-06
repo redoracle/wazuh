@@ -67,6 +67,7 @@ def evaluate(root: Path = ROOT, *, profile: str = "controlled", host: bool = Fal
 
     compose = read_yaml(root / "docker-compose.yml")
     overlay = read_yaml(root / "docker-compose.ai.yml")
+    snapshot_overlay = read_yaml(root / "docker-compose.backup.yml")
     indexer = read_yaml(root / "config/wazuh_indexer/wazuh.indexer.yml")
     services = compose.get("services", {}) if isinstance(compose, dict) else {}
     record("release_bundle", set(services) == set(CENTRAL) and all(
@@ -86,7 +87,7 @@ def evaluate(root: Path = ROOT, *, profile: str = "controlled", host: bool = Fal
     record("safe_port_defaults", len(port_entries) == 4 and all(loopback_default(p) for _, p in port_entries),
            "Published ports must default to 127.0.0.1", "Use loopback defaults and controlled ingress")
 
-    all_services = {**services, **overlay.get("services", {})}
+    all_services = {**services, **overlay.get("services", {}), **snapshot_overlay.get("services", {})}
     dangerous = any(
         svc.get("privileged") or svc.get("network_mode") == "host" or
         svc.get("pid") == "host" or svc.get("cap_add") or
@@ -112,21 +113,31 @@ def evaluate(root: Path = ROOT, *, profile: str = "controlled", host: bool = Fal
                opts.get("max-size") == "10m" and opts.get("max-file") == "5",
                "Each service should rotate its Docker stdout/stderr logs", "Configure JSON log rotation for this service")
 
-    # Upstream 4.14.x sample explicitly disables disk thresholds. Detect, do not silently
-    # change a setting whose implications depend on disk layout and indexer version.
-    record("disk_watermarks", indexer.get("cluster.routing.allocation.disk.threshold_enabled") is not False,
-           "Indexer disk allocation thresholds are disabled in the current release-based config",
-           "Validate vendor-compatible watermark policy, capacity alerts and full-disk recovery in staging",
-           enterprise_only=True)
+    # Static and dynamic OpenSearch settings are both necessary on a single-data-node cluster.
+    disk_protected = (indexer.get('cluster.routing.allocation.disk.threshold_enabled') is True and
+                      indexer.get('cluster.routing.allocation.disk.watermark.enable_for_single_data_node') is True and
+                      [indexer.get('cluster.routing.allocation.disk.watermark.' + x)
+                       for x in ('low', 'high', 'flood_stage')] == ['85%', '90%', '95%'])
+    record('disk_watermarks', disk_protected,
+           'Single-node Indexer must enable disk thresholds and flood-stage write protection',
+           'Restore supported Indexer thresholds and rehearse disk watermark recovery in staging')
     record("immutable_images", all("@sha256:" in str(svc.get("image", "")) for svc in all_services.values()),
            "Component image version tags are not immutable digests", "Record and pin approved multi-architecture image digests",
            enterprise_only=True)
 
     manager = (root / "config/wazuh_cluster/wazuh_manager.conf").read_text(encoding="utf-8")
-    record("enrollment_auth", "<use_password>yes</use_password>" in manager,
-           "The upstream manager template does not require an enrollment password",
-           "Validate vendor-supported authenticated enrollment before any exposure beyond loopback",
-           enterprise_only=True)
+    manager_mounts = services.get('wazuh.manager', {}).get('volumes', [])
+    authenticated = (manager.count('<use_password>yes</use_password>') == 1 and
+                     './config/generated/authd.pass:/var/ossec/etc/authd.pass:ro' in manager_mounts)
+    record('enrollment_auth', authenticated,
+           'Manager must require a generated enrollment password and read-only authd.pass mount',
+           'Enable Wazuh 4.x password authentication and verify rejected unauthenticated enrollment')
+    backup_service = snapshot_overlay.get('services', {}).get('snapshot-guard', {})
+    record('snapshot_operator', backup_service.get('profiles') == ['backup'] and
+           backup_service.get('read_only') is True and backup_service.get('cap_drop') == ['ALL'] and
+           not backup_service.get('ports') and backup_service.get('networks') == ['default'],
+           'Snapshot helper must be opt-in and least privileged; repository remains operator-controlled',
+           'Restore an isolated one-shot snapshot helper; never give it a Docker socket')
 
     if host:
         env_file = root / ".env"
@@ -149,6 +160,27 @@ def evaluate(root: Path = ROOT, *, profile: str = "controlled", host: bool = Fal
         record("generated_config_directory", config_safe,
                "Generated Indexer hashes, Manager key and dashboard API credentials need private directory access",
                "Keep config/generated/ a non-symlink, non-world-searchable directory and verify container access")
+        rendered = generated / 'wazuh_manager.conf'
+        try:
+            rendered_meta = rendered.lstat()
+            rendered_ok = (stat.S_ISREG(rendered_meta.st_mode) and
+                           rendered.read_text(encoding='utf-8').count('<use_password>yes</use_password>') == 1)
+        except (OSError, UnicodeError):
+            rendered_ok = False
+        record('rendered_manager_enrollment', rendered_ok,
+               'Generated manager config must require password authentication',
+               'Run explicit enrollment conversion after backup and stage-test container restart')
+        enrollment = generated / 'authd.pass'
+        try:
+            secret_stat = enrollment.lstat()
+            password_ok = (stat.S_ISREG(secret_stat.st_mode) and
+                           not stat.S_IMODE(secret_stat.st_mode) & 0o007 and
+                           1 <= secret_stat.st_size <= 256)
+        except OSError:
+            password_ok = False
+        record('enrollment_secret_access', password_ok,
+               'Enrollment password must exist as a bounded regular private file',
+               'Initialize new deployment or run enrollment_security.py --apply on existing deployment')
         keys = ("admin-key.pem", "wazuh.indexer-key.pem", "wazuh.manager-key.pem", "wazuh.dashboard-key.pem")
         keys_safe = True
         for key in keys:

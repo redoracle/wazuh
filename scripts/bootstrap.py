@@ -113,7 +113,7 @@ def write_secure(path: Path, contents: str, mode: int) -> None:
 
 
 def check_initialized() -> list[str]:
-    paths = (ENV, GENERATED / "internal_users.yml", GENERATED / "wazuh.yml", GENERATED / "wazuh_manager.conf")
+    paths = (ENV, GENERATED / "internal_users.yml", GENERATED / "wazuh.yml", GENERATED / "wazuh_manager.conf", GENERATED / "authd.pass")
     missing = [str(path.relative_to(ROOT)) for path in paths if not path.is_file()]
     if missing:
         return missing
@@ -125,7 +125,7 @@ def check_initialized() -> list[str]:
 
 
 def bootstrap() -> None:
-    expected_paths = (ENV, GENERATED / "internal_users.yml", GENERATED / "wazuh.yml", GENERATED / "wazuh_manager.conf")
+    expected_paths = (ENV, GENERATED / "internal_users.yml", GENERATED / "wazuh.yml", GENERATED / "wazuh_manager.conf", GENERATED / "authd.pass")
     if any(path.exists() for path in expected_paths):
         if not check_initialized():
             print("Already initialized. Existing credentials were preserved.")
@@ -136,6 +136,7 @@ def bootstrap() -> None:
     validate_defaults(defaults)
     credentials = {name: random_secret() for name in EXPECTED}
     manager = make_manager_config(secrets.token_hex(16))
+    enrollment_password = secrets.token_hex(32)
     users = make_internal_users(credentials["INDEXER_PASSWORD"], credentials["DASHBOARD_PASSWORD"])
     dashboard = make_dashboard_config(credentials["API_PASSWORD"])
     env_body = defaults.rstrip("\n") + "\n" + "".join(f"{key}={value}\n" for key, value in credentials.items())
@@ -148,11 +149,12 @@ def bootstrap() -> None:
         (GENERATED / "internal_users.yml", users, 0o644),
         (GENERATED / "wazuh.yml", dashboard, 0o644),
         (GENERATED / "wazuh_manager.conf", manager, 0o644),
+        (GENERATED / "authd.pass", enrollment_password + "\n", 0o640),
         (ENV, env_body, 0o600),
     )
     for path, content, mode in files:
         write_secure(path, content, mode)
-    print("Credentials and service configuration created. Keep .env and config/generated private.")
+    print("Credentials, enrollment password and configuration created. Keep .env and config/generated private.")
     print("Next: docker compose -f generate-indexer-certs.yml run --rm generator")
     print("Then: docker compose config --quiet && docker compose up -d")
 

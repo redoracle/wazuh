@@ -1,6 +1,6 @@
 # Backup, retention and restoration: self-hosted Wazuh
 
-**Status: operator implementation required.** This repository does **not** configure an Indexer snapshot repository, a scheduled backup job, off-host transport, retention enforcement or disaster recovery. Docker named volumes are persistence, **not** an independent backup. A successful source-code CI check is not a restore test.
+**Status: backup automation partially implemented; operational prerequisites still required.** The opt-in `scripts/snapshot_guard.py` and `docker-compose.backup.yml` support bounded alert snapshot creation/status verification against an *existing* approved repository, but do **not** configure the repository, provide off-host transport, encrypt storage, schedule backups by default, back up manager state, or demonstrate restoration. Docker named volumes are persistence, **not** an independent backup. A successful source-code CI check is not a restore test.
 
 ## 1. Define the recovery contract
 
@@ -18,7 +18,34 @@ Before enabling production telemetry, document the business-approved **RPO** (ma
 | Deployment definition | Git commit SHA, image **digests**, Compose rendered config hash, DNS/firewall rules | Do not publish a resolved Compose file: it can include passwords. Keep evidence in a restricted operator vault. |
 | Opt-in AI state | `ai-ollama-data`, any local AI secrets and model provenance | Auxiliary; Wazuh recovery must not depend on Ollama. Retain only under approved data-handling policy. |
 
-## 3. Configure Indexer snapshots **outside this repository**
+## 3. Opt-in snapshot execution and verification
+
+The snapshot helper is **plan-only by default**; it cannot delete, register repositories or restore data. A dedicated backup operator (separate from Wazuh admin, permissions limited to the required snapshot actions) must be provisioned using the running Indexer security API. Verify the user has **no** index deletion, role modification, host-shell or Manager API permissions. Security-plugin snapshot operations require carefully scoped cluster permissions; do not reuse dashboard service or AI reader identities.
+
+```bash
+# Offline: no network, no credentials, no mutation.
+python3 scripts/snapshot_guard.py --repository wazuh-offsite --mode plan
+
+# Inside the private Docker bridge, after an operator configured an actual off-host
+# Indexer repository named wazuh-offsite, created a dedicated snapshot user,
+# installed its password into local-secrets/snapshot-indexer-password (0600),
+# and confirmed the repository's remote durability and encryption.
+docker compose -f docker-compose.yml -f docker-compose.backup.yml \
+  run --rm --no-deps snapshot-guard --repository wazuh-offsite --mode create --apply \
+  --ca-file /certs/root-ca.pem --username wazuh-backup \
+  --password-file /run/secrets/snapshot-indexer-password
+
+# Copy the generated snapshot name from the previous JSON output, then verify it:
+docker compose -f docker-compose.yml -f docker-compose.backup.yml \
+  run --rm --no-deps snapshot-guard --repository wazuh-offsite \
+  --mode verify --snapshot wazuh-YYYYMMDDtHHMMSSz \
+  --ca-file /certs/root-ca.pem --username wazuh-backup \
+  --password-file /run/secrets/snapshot-indexer-password
+```
+
+The helper selects only `wazuh-alerts-4.x-*`, with `partial=false`, `include_global_state=false`, and strict failure checks. **It is not a complete Wazuh backup**, does not include security state, other Indexer indexes, manager data, certificates or credentials, and verification only establishes API-reported success. Check that the repository is **truly off-host** and encrypted, enforce retention separately, and perform an isolated restore before meeting the recovery gate. For periodic automation, deploy an approved host timer that runs the one-shot Compose command and separately verifies each snapshot, detects stale backups, and alerts on non-success exit codes. Avoid committing operator credentials or emitting passwords to command arguments.
+
+## 4. Configure Indexer snapshots **outside this repository**
 
 Use the [Wazuh Indexer migration/snapshot guidance](https://documentation.wazuh.com/current/user-manual/wazuh-indexer/migrating-wazuh-indices.html) and the version-compatible [OpenSearch snapshot/restore documentation](https://docs.opensearch.org/latest/tuning-your-cluster/availability-and-recovery/snapshots/snapshot-restore/). A snapshot repository requires an **explicitly configured, approved destination**: for example, a dedicated filesystem mount plus an appropriate `path.repo` setting, or a compatible object-storage repository plugin. This Compose file supplies neither one. Do not assume `/_snapshot/...` works until the repository is configured and verified on your deployment.
 
@@ -38,7 +65,7 @@ The `APPROVED_REPOSITORY` and snapshot name are **placeholders**, not configured
 
 **Security:** the indexer is intentionally **not** published to the host. Do not expose port 9200 publicly for backup convenience or bypass certificate checking with `curl -k`; connect using a short-lived, approved client with TLS and the minimal privileges required by the operations performed. Avoid copying private key paths or auth headers into tickets.
 
-## 4. Rehearse an isolated restoration
+## 5. Rehearse an isolated restoration
 
 1. Build an isolated target with the **approved version-compatible** Indexer binaries and distinct host storage/network. Verify the destination has capacity for all restored shards and that the backup repository is mounted **read-only** on the restore target.
 2. Restore required manager/agent identity materials, configuration, certificates and dependent credentials under change control. Confirm secrets ownership/modes and that no agent will accidentally connect to production.
@@ -49,7 +76,7 @@ The `APPROVED_REPOSITORY` and snapshot name are **placeholders**, not configured
 
 **Rollback caution:** an older Indexer may not read indices written by a newer major version. Restoring into older software is not a safe alternative to a vendor-supported migration plan. Test and retain a matching pre-upgrade snapshot before every release migration.
 
-## 5. Incident response and retention
+## 6. Incident response and retention
 
 On ransomware, disk corruption, suspected credential compromise or an unexpected loss of Indexer availability: preserve forensic evidence, stop new enrollment if necessary, verify snapshot repository integrity independently, recover in an isolated target, and document any lost alert interval. Never delete snapshot files manually: incremental snapshots share data; use the supported snapshot retention/deletion API with approvals.
 

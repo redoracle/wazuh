@@ -1,4 +1,4 @@
-.PHONY: help bootstrap bootstrap-check certs config check test ai-test ai-config preflight docs-check cert-check up status logs down
+.PHONY: help bootstrap bootstrap-check certs config check test ai-test ai-config preflight docs-check cert-check ha-plan backup-plan runtime-check governance-check up status logs down
 PYTHON ?= python3
 
 help:
@@ -52,3 +52,18 @@ docs-check:
 # Operator-only host security check, after generating TLS materials (needs openssl).
 cert-check:
 	$(PYTHON) scripts/check_certificates.py --min-days 30
+
+# Inventory contract only: does not deploy or approve HA.
+ha-plan:
+	$(PYTHON) scripts/validate_ha_inventory.py
+
+# No live snapshot is created by this command.
+backup-plan:
+	$(PYTHON) scripts/snapshot_guard.py --repository wazuh-offsite --mode plan
+
+# Operator-only read-only runtime status and GitHub rules checks.
+runtime-check:
+	$(PYTHON) scripts/runtime_probe.py
+
+governance-check:
+	$(PYTHON) scripts/check_github_governance.py

@@ -51,3 +51,15 @@ See [enterprise readiness](ENTERPRISE_READINESS.md), [operations](OPERATIONS.md)
 ## Supporting procedures
 
 Execute [secure agent enrollment and negative auth tests](AGENT_ENROLLMENT.md), [snapshot and isolated restore](BACKUP_RESTORE.md), and [certificate lifecycle validation](CERTIFICATE_OPERATIONS.md) as separate signed evidence items. The certificate command `python3 scripts/check_certificates.py --min-days 30` is a host-side prerequisite and never appears as a false-green CI check. If a control cannot be tested, mark it **not verified** rather than passed.
+
+## Automated, limited supporting evidence (not a full acceptance test)
+
+```bash
+python3 scripts/validate_ha_inventory.py --inventory deployments/ha/inventory.example.json
+python3 scripts/snapshot_guard.py --repository wazuh-offsite --mode plan
+python3 scripts/runtime_probe.py      # requires Docker; only checks container liveness
+python3 scripts/check_github_governance.py  # requires GitHub admin read access for protection
+python3 scripts/enterprise_preflight.py --profile enterprise --json  # must block until real evidence
+```
+
+The first two commands can run completely offline on examples; they do **not** create hosts or an off-site snapshot. `runtime_probe.py` never claims that an agent was enrolled or that an alert was indexed. GitHub rules may be unavailable to a public unauthenticated request; unknown status is a failed gate, not passing evidence. Collect actual Wazuh/Indexer health, negative enrollment test, disk flood-stage drill, manual host-failure drill, encrypted off-host backup and restored agent/alert proof under change control before approval.

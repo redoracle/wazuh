@@ -25,3 +25,10 @@ For upstream component changes, see [Wazuh Docker v4.14.9](https://github.com/wa
 - Rotate Docker stdout/stderr logs, cap short-lived AI worker resources, and add architecture decision and runtime acceptance runbooks.
 - Add a weekly non-mutating upstream stable-release watch, CODEOWNERS and deployment/supply-chain review checklist.
 - Leave the Wazuh 4.14.9 release bundle, disk thresholds and enrollment semantics unchanged pending vendor-compatible staged validation.
+
+## Enterprise security remediation in progress — November 2026
+
+- Added password-authenticated Wazuh agent enrollment for **new installations**, a private bootstrap secret and a separate explicit migration path for previously initialized managers. Running containers are never automatically changed.
+- Enabled single-data-node Indexer disk thresholds at low/high/flood 85/90/95, subject to staging verification and capacity/ingestion recovery tests.
+- Added an isolated, plan-by-default snapshot helper and backup Compose overlay, with strict alert-index scoping and verification. Full off-host backup/restore still requires operator provisioning and evidence.
+- Added pinned official multi-node inventory validation, read-only Docker runtime/GitHub governance probes, and a scheduled SHA-pinned Trivy image vulnerability scan. HA deployment, immutable image approval, branch protection and signed production acceptance remain gated.

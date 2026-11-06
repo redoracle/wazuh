@@ -34,7 +34,7 @@ class EnterprisePolicyTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         for name in ('docker-compose.yml', 'docker-compose.ai.yml',
                      'config/wazuh_indexer/wazuh.indexer.yml',
-                     'config/wazuh_cluster/wazuh_manager.conf'):
+                     'config/wazuh_cluster/wazuh_manager.conf', 'docker-compose.backup.yml'):
             dest = self.root / name
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ROOT / name, dest)
@@ -51,13 +51,14 @@ class EnterprisePolicyTests(unittest.TestCase):
     def test_controlled_profile_passes_with_explicit_risks(self):
         results = self.findings()
         self.assertFalse([x for x in results.values() if x.result == 'block'])
-        for name in ('disk_watermarks', 'immutable_images', 'enrollment_auth'):
-            self.assertEqual(results[name].result, 'warn', name)
+        self.assertEqual(results['immutable_images'].result, 'warn')
+        for name in ('disk_watermarks', 'enrollment_auth', 'snapshot_operator'):
+            self.assertEqual(results[name].result, 'pass', name)
 
     def test_enterprise_profile_cannot_claim_production_readiness(self):
         results = self.findings('enterprise')
         for name in ('high_availability', 'snapshot_restore', 'live_acceptance',
-                     'governance', 'network_policy', 'enrollment_auth', 'immutable_images'):
+                     'governance', 'network_policy', 'immutable_images'):
             self.assertEqual(results[name].result, 'block', name)
 
     def test_block_published_indexer(self):
@@ -87,6 +88,22 @@ class EnterprisePolicyTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.findings()
 
+    def test_block_if_disk_watermarks_disabled(self):
+        self.mutate('config/wazuh_indexer/wazuh.indexer.yml',
+                    lambda d: d.update({'cluster.routing.allocation.disk.threshold_enabled': False}))
+        self.assertEqual(self.findings()['disk_watermarks'].result, 'block')
+
+    def test_block_passwordless_manager_enrollment(self):
+        conf = self.root / 'config/wazuh_cluster/wazuh_manager.conf'
+        conf.write_text(conf.read_text().replace('<use_password>yes</use_password>',
+                                                '<use_password>no</use_password>'))
+        self.assertEqual(self.findings()['enrollment_auth'].result, 'block')
+
+    def test_block_backup_worker_with_public_port(self):
+        self.mutate('docker-compose.backup.yml',
+                    lambda d: d['services']['snapshot-guard'].update(ports=['9200:9200']))
+        self.assertEqual(self.findings()['snapshot_operator'].result, 'block')
+
     def test_block_component_release_drift(self):
         self.mutate('docker-compose.yml', lambda d: d['services']['wazuh.manager'].update(image='wazuh/wazuh-manager:latest'))
         self.assertEqual(self.findings()['release_bundle'].result, 'block')
@@ -114,6 +131,16 @@ class EnterprisePolicyTests(unittest.TestCase):
         self.assertEqual(self.findings(host=True)['generated_config_directory'].result, 'block')
         generated.chmod(0o700)
         self.assertEqual(self.findings(host=True)['generated_config_directory'].result, 'pass')
+
+    def test_host_fails_on_previously_rendered_passwordless_manager(self):
+        directory = self.root / 'config/generated'
+        directory.mkdir(parents=True)
+        directory.chmod(0o700)
+        manager = directory / 'wazuh_manager.conf'
+        manager.write_text('<auth><use_password>no</use_password></auth>')
+        self.assertEqual(self.findings(host=True)['rendered_manager_enrollment'].result, 'block')
+        manager.write_text('<auth><use_password>yes</use_password></auth>')
+        self.assertEqual(self.findings(host=True)['rendered_manager_enrollment'].result, 'pass')
 
     def test_host_certificate_keys_missing_or_world_readable(self):
         cert_dir = self.root / 'config/wazuh_indexer_ssl_certs'

@@ -53,3 +53,13 @@ The upstream-based indexer has disabled disk-allocation thresholds. Monitor free
 Run `make preflight` for offline source policy checks and use [enterprise readiness](ENTERPRISE_READINESS.md) plus [production acceptance](PRODUCTION_ACCEPTANCE.md) for the operator-run evidence. A Wazuh installation can pass the repository's CI and still fail to ingest events or restore snapshots.
 
 For enrollment incidents or certificate expiry, see [agent enrollment security](AGENT_ENROLLMENT.md) and [certificate lifecycle](CERTIFICATE_OPERATIONS.md).
+
+## P0/P1 operational supporting tools
+
+- [Disk protection and full-disk recovery](DISK_OPERATIONS.md) for the newly enabled single-node watermarks.
+- [HA reference and failover staging](HA_MIGRATION.md) for cross-failure-domain architecture.
+- [Opt-in snapshot create/verify](BACKUP_RESTORE.md); a snapshot helper is not full manager recovery and cannot guarantee off-host durability without an approved repository.
+- [Authenticated agent enrollment](AGENT_ENROLLMENT.md) for new bootstrap and explicit existing-install migration.
+- [Supply chain review](SUPPLY_CHAIN.md) for scheduled scanning and outstanding digest/SBOM gates.
+
+`python3 scripts/runtime_probe.py` reports only Compose service status. No successful output is sufficient evidence for RPO/RTO, Indexer alert ingestion, or manager recovery.

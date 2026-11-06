@@ -68,7 +68,7 @@ docker compose ps
 
 Open **https://localhost** and authenticate with username **`admin`** and the unique `INDEXER_PASSWORD` stored in your private `.env` file. Self-signed certificates require an explicit browser trust decision; use certificates from a trusted CA for public-facing deployments. Initial startup can take several minutes.
 
-The initializer creates `.env` with permissions `0600`, a protected `config/generated/` directory, indexer user hashes, an API configuration, and a generated manager configuration. **Never commit, paste into logs, or share these files.** Re-running the initializer does not rotate existing passwords. See [Credential management](docs/DEPLOYMENT.md#credentials-and-certificates).
+The initializer creates `.env` with permissions `0600`, a protected `config/generated/` directory, a unique `authd.pass` enrollment secret, indexer user hashes, an API configuration, and a generated manager configuration. **Existing deployments require an explicit enrollment conversion** before recreating the manager; a checkout never rotates running service credentials. See [agent enrollment](docs/AGENT_ENROLLMENT.md). **Never commit, paste into logs, or share these files.** Re-running the initializer does not rotate existing passwords. See [Credential management](docs/DEPLOYMENT.md#credentials-and-certificates).
 
 ## Configuration
 
@@ -98,7 +98,13 @@ make cert-check  # verify TLS trust, key pairs, expiry and key modes (OpenSSL re
 make down     # stop without deleting persistent volumes
 ```
 
-The `Makefile` provides `bootstrap`, `certs`, `up`, and validation tasks. **Never run `docker compose down -v` without a verified recovery plan**; removing volumes deletes the stored Wazuh state. For backups, incident recovery and configuration management, see [Operations](docs/OPERATIONS.md).
+The `Makefile` provides `bootstrap`, `certs`, `up`, and validation tasks. **Never run `docker compose down -v` without a verified recovery plan**; removing volumes deletes the stored Wazuh state. For backups, incident recovery and configuration management, see [Operations](docs/OPERATIONS.md) and the [recovery runbook](docs/BACKUP_RESTORE.md).
+
+## P0/P1 security controls and acceptance
+
+New installations use password-authenticated Wazuh agent enrollment and disk watermarks, but these security-sensitive changes must be tested in staging before rollout to existing service volumes. Follow [agent enrollment](docs/AGENT_ENROLLMENT.md), [disk protections and recovery](docs/DISK_OPERATIONS.md), and [backup and restore](docs/BACKUP_RESTORE.md). The optional [snapshot operator](docs/BACKUP_RESTORE.md) only creates/verifies alert snapshots against an approved off-host repository; it is **not** complete disaster recovery. Full recovery still needs manager, certificates and credentials, an encrypted off-host backup and a rehearsed restore.
+
+The [multi-host HA migration reference](docs/HA_MIGRATION.md) validates failure-domain inventory design against the official pinned multi-node version; it does **not** deploy high availability automatically. [Supply-chain safeguards](docs/SUPPLY_CHAIN.md) include scheduled vulnerability scans, but deployment still needs immutable image approvals and GitHub [branch rules](docs/REPOSITORY_ADMIN.md). The [monitoring runbook](docs/MONITORING.md) and [production acceptance](docs/PRODUCTION_ACCEPTANCE.md) record remain mandatory.
 
 ## Optional AI-assisted security operations
 
