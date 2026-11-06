@@ -97,6 +97,22 @@ make down     # stop without deleting persistent volumes
 
 The `Makefile` provides `bootstrap`, `certs`, `up`, and validation tasks. **Never run `docker compose down -v` without a verified recovery plan**; removing volumes deletes the stored Wazuh state. For backups, incident recovery and configuration management, see [Operations](docs/OPERATIONS.md).
 
+## Optional AI-assisted security operations
+
+This repository provides an **opt-in, read-only local AI triage workflow** for SOC analysts. It queries a strictly bounded subset of Wazuh Indexer alerts with a separately permissioned identity, projects only minimal non-raw metadata, and can optionally ask a private **Ollama** model to produce investigation hypotheses. All model output is marked **untrusted** and requires analyst verification. The provided code does not give the model tools to execute commands, call the Wazuh Manager API, change security policies, quarantine agents or invoke active response.
+
+```mermaid
+flowchart LR
+    I[(Wazuh Indexer)] -->|TLS + read-only alert search| T[Optional AI triage]
+    T -->|Allowlisted metadata only| O[Local Ollama]
+    O -->|Untrusted advisory| T
+    T -->|Human approval required| A[SOC analyst]
+```
+
+**Start offline** with the [AI integration HOWTO](docs/AI_HOWTO.md), then configure a dedicated restricted Indexer principal before enabling the optional Docker overlay (`docker-compose.ai.yml`). No AI service is enabled by a normal `docker compose up -d`. Local model inference is explicitly opt-in, and the Indexer and Ollama have no new host-published ports.
+
+Self-hosted guides: [implemented capabilities and evidence](docs/AI_INTEGRATIONS.md) · [local setup/how-to](docs/AI_HOWTO.md) · [AI threat model](docs/AI_SECURITY.md) · [validation and runbook](docs/AI_VALIDATION.md). **This is an independently maintained opt-in integration, not a built-in Wazuh AI feature.** Live Indexer connectivity and Ollama model quality require separate deployment testing.
+
 ## Quality and release management
 
 Pull requests run Python unit tests across Python 3.11, 3.13 and 3.14, and validate both Docker Compose files without pulling images or starting containers. CI also checks the release pin, mount/port boundaries, secrets hygiene, config structure and generated credentials.
@@ -108,6 +124,10 @@ Images are intentionally **pinned as a coordinated set to v4.14.9**. Changing th
 | Guide | Contents |
 | --- | --- |
 | [Deployment](docs/DEPLOYMENT.md) | Prerequisites, credentials, certificates and first startup |
+| [Self-hosted AI integration](docs/AI_INTEGRATIONS.md) | Implemented local features, evidence, security boundaries and unsupported capabilities |
+| [AI HOWTO](docs/AI_HOWTO.md) | Safe offline demo, Indexer reader role and optional local-model operations |
+| [AI security](docs/AI_SECURITY.md) | Trust boundaries and threat model |
+| [AI validation](docs/AI_VALIDATION.md) | CI coverage, operator acceptance and rollback |
 | [Architecture](docs/ARCHITECTURE.md) | Components, TLS, networks, ports and persistence |
 | [Operations](docs/OPERATIONS.md) | Health checks, backups, restore and troubleshooting |
 | [Upgrading](docs/UPGRADING.md) | Version alignment, maintenance and migration procedure |

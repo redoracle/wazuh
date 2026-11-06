@@ -1,0 +1,52 @@
+# Opt-in local AI triage; always pass -f docker-compose.yml -f docker-compose.ai.yml.
+# No published ports. The model is isolated from the Wazuh application network.
+services:
+  ai-triage:
+    image: python:3.13-slim
+    profiles: [ai]
+    read_only: true
+    restart: 'no'
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - default
+      - ai-model-net
+    volumes:
+      - ./integrations/ai_triage:/app:ro
+      - ./config/wazuh_indexer_ssl_certs/root-ca.pem:/certs/root-ca.pem:ro
+      - ./local-secrets/ai-indexer-password:/run/secrets/ai-indexer-password:ro
+      - ./local-state:/state
+    entrypoint: [python3, /app/triage.py]
+    command:
+      - --source
+      - indexer
+      - --indexer-url
+      - https://wazuh.indexer:9200
+      - --ca-file
+      - /certs/root-ca.pem
+      - --user
+      - ${AI_INDEXER_USERNAME:-wazuh-ai-reader}
+      - --password-file
+      - /run/secrets/ai-indexer-password
+      - --audit-file
+      - /state/audit.jsonl
+
+  ai-ollama:
+    image: ollama/ollama:0.40.15
+    profiles: [ai]
+    restart: unless-stopped
+    networks:
+      - ai-model-net
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+    volumes:
+      - ai-ollama-data:/root/.ollama
+    # No host ports; only the opt-in triage worker can reach this model service.
+
+networks:
+  ai-model-net:
+    driver: bridge
+
+volumes:
+  ai-ollama-data:

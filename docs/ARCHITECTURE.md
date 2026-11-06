@@ -36,3 +36,7 @@ The repository does not automatically implement index snapshots, replicas, HA, r
 - Indexer internal user hashes and dashboard API credentials are generated **per installation** instead of shipping upstream demonstration passwords.
 
 References: [official Docker single-node files](https://github.com/wazuh/wazuh-docker/tree/v4.14.9/single-node), [official deployment guide](https://documentation.wazuh.com/current/deployment-options/docker/wazuh-container.html).
+
+## Optional AI analysis boundary
+
+The [opt-in AI overlay](../docker-compose.ai.yml) runs a single bounded Indexer search worker on the Wazuh application network and optionally attaches it to a separate **AI model network**. The Ollama service itself has no membership in the Wazuh application network and no published host port. The worker accesses the Indexer with a *separate*, server-enforced read-only role and forwards only validated metadata to the model. The default deployment is unchanged unless an operator explicitly includes the overlay. Read the [AI threat model](AI_SECURITY.md) before deployment.

@@ -1,4 +1,4 @@
-.PHONY: help bootstrap bootstrap-check certs config check test up status logs down
+.PHONY: help bootstrap bootstrap-check certs config check test ai-test ai-config up status logs down
 PYTHON ?= python3
 
 help:
@@ -32,3 +32,11 @@ logs:
 
 down:
 	docker compose down
+
+# Does not start containers or contact any inference provider.
+ai-test:
+	$(PYTHON) -m unittest discover -s tests -p 'test_ai_*.py' -v
+
+# Validates opt-in Compose overlay; run after one-time bootstrap.
+ai-config:
+	docker compose -f docker-compose.yml -f docker-compose.ai.yml config --quiet
