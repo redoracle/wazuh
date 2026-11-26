@@ -25,7 +25,7 @@ An older indexer may not read data files migrated by a newer release. If tests f
 
 ## Dependency policy
 
-- `bcrypt==5.0.0` and `PyYAML==6.0.3` are explicit pinned host/test dependencies, reviewed weekly by Dependabot.
+- `bcrypt==5.0.0` and `PyYAML==6.0.4` are explicit pinned host/test dependencies, reviewed weekly by Dependabot.
 - CI actions are pinned by immutable Git commit SHA and monitored by Dependabot.
 - Wazuh container versions and the generator are managed **as a single release bundle**, not as individually auto-upgradable libraries.
 - Runtime vulnerability management includes host/container patching, exposure reduction, monitoring, image provenance verification and the vendor's current security advisories.
