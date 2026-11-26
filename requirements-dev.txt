@@ -1,2 +1,2 @@
 -r requirements-bootstrap.txt
-PyYAML==6.0.3
+PyYAML==6.0.4
